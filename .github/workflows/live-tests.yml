@@ -1,7 +1,7 @@
 name: Live tests (staging)
 
 # Manual only. These tests call the real staging API with real keys, publish a
-# configuration and consume Bedrock quota, so they must never run on a pull
+# configuration and consume external API capacity, so they must never run on a pull
 # request. Keys come from the `staging-live` environment secrets and are passed
 # to the test processes as environment variables; no step echoes them and
 # `set -x` is forbidden in this workflow.

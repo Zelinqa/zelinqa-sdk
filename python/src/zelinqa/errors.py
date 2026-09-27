@@ -19,6 +19,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from math import isfinite
 from typing import Any
 
 from .models import ConfigurationIssue
@@ -401,6 +402,8 @@ def parse_retry_after(value: str | None) -> float | None:
         if moment.tzinfo is None:
             moment = moment.replace(tzinfo=UTC)
         seconds = (moment - datetime.now(tz=UTC)).total_seconds()
+    if not isfinite(seconds):
+        return None
     return min(max(seconds, 0.0), MAX_RETRY_AFTER_SECONDS)
 
 
@@ -416,4 +419,6 @@ def _details_retry_after(details: Mapping[str, Any]) -> float | None:
     value = details.get("retry_after_seconds")
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    return max(float(value), 0.0)
+    if isinstance(value, float) and not isfinite(value):
+        return None
+    return float(min(max(value, 0.0), MAX_RETRY_AFTER_SECONDS))

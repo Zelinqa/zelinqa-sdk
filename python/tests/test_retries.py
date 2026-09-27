@@ -185,6 +185,16 @@ def test_details_retry_after_seconds_is_honoured(slept: list[float]) -> None:
     assert slept == [1.0]
 
 
+def test_details_retry_after_seconds_is_capped(slept: list[float]) -> None:
+    payload = {
+        **response_example("IdempotencyContention"),
+        "details": {"retry_after_seconds": 3600},
+    }
+    handler = Handler(httpx.Response(503, json=payload), ok())
+    call_create(handler)
+    assert slept == [errors_module.MAX_RETRY_AFTER_SECONDS]
+
+
 def test_idempotency_contention_is_retried_on_its_code(slept: list[float]) -> None:
     payload = {**response_example("IdempotencyContention"), "details": {}}
     handler = Handler(httpx.Response(503, json=payload), ok())
@@ -349,6 +359,31 @@ async def test_async_client_retries_with_the_same_policy(slept: list[float]) -> 
     assert state.session_id == "ses_01J8Z"
     assert slept == [0.5]
     assert handler.keys == {"create-session-8842"}
+
+
+async def test_async_client_caps_details_retry_after(slept: list[float]) -> None:
+    handler = Handler(
+        httpx.Response(503, json={"message": "later", "details": {"retry_after_seconds": 3600}}),
+        ok(),
+    )
+    async with AsyncZelinqaClient(
+        API_KEY, base_url=BASE_URL, max_retries=1, transport=httpx.MockTransport(handler)
+    ) as instance:
+        state = await instance.create_session()
+
+    assert state.session_id == "ses_01J8Z"
+    assert slept == [30.0]
+
+
+def test_nonfinite_retry_after_falls_back_to_backoff() -> None:
+    attempt = http_module.Attempt(
+        status_code=503,
+        payload={"details": {"retry_after_seconds": float("nan")}},
+        text="",
+        code=None,
+        headers=httpx.Headers({"Retry-After": "nan"}),
+    )
+    assert http_module.retry_delay(attempt, attempt_index=0, max_retries=1) == 0.5
 
 
 async def test_async_transport_errors_are_wrapped(slept: list[float]) -> None:

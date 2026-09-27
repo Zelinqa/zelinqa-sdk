@@ -49,8 +49,8 @@ export interface paths {
          *     Les différences sont volontairement structurelles. Elles indiquent la
          *     ressource et les champs modifiés, mais ne recopient jamais le texte des
          *     questions, les libellés, les prompts, les réponses d'un utilisateur ni
-         *     une clé API en clair. L'identifiant d'une clé actrice est son empreinte
-         *     SHA-256 déjà stockée par l'authorizer.
+         *     une clé API en clair. L'identifiant d'une clé actrice est une empreinte
+         *     non réversible de cette clé.
          *
          *     La pagination utilise un curseur opaque. Le journal des événements de
          *     session est séparé et n'est jamais renvoyé par cette route.
@@ -241,8 +241,8 @@ export interface paths {
          *     ailleurs, avant l'activation de Zelinqa. Il est consommé **une seule fois** en mémoire pour
          *     construire l'état initial, puis n'est persisté ni dans l'état, ni dans le
          *     journal, ni dans les logs applicatifs, et n'est jamais renvoyé. Si le
-         *     tracing LLM est activé par Zelinqa, le prompt peut apparaître dans
-         *     LangSmith EU selon la politique de diagnostic et de rétention V1.
+         *     diagnostic des appels au modèle est activé, les données transmises sont
+         *     soumises à la politique de diagnostic et de rétention applicable.
          */
         post: operations["createSession"];
         delete?: never;
@@ -546,12 +546,9 @@ export interface components {
              * @description Identifiant stable et lisible de l'anomalie, en minuscules avec des
              *     traits de soulignement.
              *
-             *     **Volontairement non figé en énumération.** Les validations de
-             *     publication se stabiliseront avec NBQ-108, NBQ-306 et NBQ-311, en
-             *     particulier celles liées à la génération des cibles d'exploration :
-             *     fermer le catalogue maintenant imposerait une modification du contrat
-             *     à chaque validation découverte, et certains codes envisagés se
-             *     révéleraient prématurés. Il sera figé avant la génération des SDK.
+             *     **Volontairement non figé en énumération.** Le catalogue peut évoluer
+             *     avec les règles de validation ; un client doit traiter les codes
+             *     inconnus en affichant leur message.
              *
              *     Codes déjà employés, à traiter comme un socle et non comme une liste
              *     exhaustive : `question_without_dimension`,
@@ -858,7 +855,7 @@ export interface components {
          *     une dépendance des intégrations.
          *
          *     **Invariants garantis par le moteur**, non exprimés en JSON Schema pour
-         *     rester générables en SDK, et couverts par les tests de contrat (NBQ-313) :
+         *     rester générables en SDK :
          *
          *     - `action: ask` implique `decision_id` non nul, `stop_reason` nul et au
          *       moins un candidat ;
@@ -980,6 +977,16 @@ export interface components {
          *     `assistant_text`, la réponse structurée et le contexte — ce qui permet à
          *     l'agent hôte de reformuler librement les questions. Une valeur explicite du
          *     client reste prioritaire sur l'inférence et est validée.
+         *
+         *     Open questions require a non-blank `user_text`, unless `outcome` is
+         *     explicitly `asked_no_answer` or `refused`. Otherwise the runtime returns
+         *     HTTP 422 `invalid_previous_turn` before model analysis. `client_updates`
+         *     and `context_update` do not replace the required `previous_turn.user_text`.
+         *     Closed questions accept `structured_answer.choice_ids` without text.
+         *     Semi-open questions also accept choices alone, with `free_text` when the
+         *     person adds a comment. Both choice question types also accept `user_text`.
+         *     Explicit `asked_no_answer` and `refused` outcomes need no text on any type.
+         *     Context-only requests and the first `next` without `previous_turn` are unchanged.
          */
         PreviousTurn: {
             /** @description Question ou message réellement envoyé par l'agent hôte, éventuellement reformulé. */
@@ -990,9 +997,11 @@ export interface components {
             question_id?: string;
             structured_answer?: components["schemas"]["StructuredAnswer"];
             /**
-             * @description Verbatim optionnel. Peut être omis lorsque `structured_answer` ou
-             *     `client_updates` suffisent : l'extraction sémantique devient dégradée,
-             *     signalée par `degraded_reasons`, mais le moteur reste fonctionnel.
+             * @description The person's actual reply. Required for an open question unless
+             *     `outcome` is `asked_no_answer` or `refused`; optional for closed and
+             *     semi-open questions. Text is analyzed by the engine. Choices alone,
+             *     or an explicit no-answer/refusal outcome alone, need no model analysis
+             *     when the question is unambiguous and no other text is supplied.
              */
             user_text?: string;
         };
@@ -1452,6 +1461,9 @@ export interface components {
         /**
          * @description Le tour précédent est incohérent, ou les contraintes de l'appel ne laissent
          *     aucune question possible.
+         *     HTTP 422 `invalid_previous_turn` also applies when an open question has
+         *     no non-blank `previous_turn.user_text` and its outcome is neither
+         *     `asked_no_answer` nor `refused`. Validation runs before model analysis.
          */
         NextUnprocessable: {
             headers: {
@@ -1480,14 +1492,9 @@ export interface components {
             };
         };
         /**
-         * @description Clé absente, malformée, inconnue, révoquée, expirée, ou rattachée à un domaine
-         *     suspendu. Le refus vient de l'authorizer de la passerelle, avant que la
-         *     requête n'atteigne le service : le corps est donc produit par la passerelle
-         *     et peut ne pas suivre l'enveloppe d'erreur métier.
-         *
-         *     La distinction avec `403` est nette : `401` signifie « je ne sais pas qui
-         *     vous êtes », `403` signifie « je sais qui vous êtes, mais cette clé ne porte
-         *     pas le scope requis ».
+         * @description Clé absente ou refusée. La passerelle peut produire un corps d'erreur
+         *     différent de l'enveloppe métier. Un refus lié aux droits peut aussi
+         *     prendre la forme d'un `403`.
          */
         Unauthorized: {
             headers: {
@@ -1596,13 +1603,8 @@ export interface operations {
                  *     `configuration:write` : lire un brouillon revient à voir du travail
                  *     non publié, ce qui relève de l'édition plutôt que de la consultation.
                  *
-                 *     **Ce contrôle est dynamique, appliqué par le service, pas par
-                 *     l'authorizer.** L'authorizer de la passerelle décide à partir de la
-                 *     méthode et du chemin ; il ne voit pas les paramètres de requête et ne
-                 *     peut donc pas distinguer `?state=draft` de `?state=published`. Il
-                 *     n'exige ici que `configuration:read`, et le service refuse ensuite
-                 *     avec `403 insufficient_scope` si `state=draft` est demandé sans
-                 *     `configuration:write`.
+                 *     La lecture du brouillon exige aussi `configuration:read`. Une clé
+                 *     dépourvue de `configuration:write` reçoit `403 insufficient_scope`.
                  */
                 state?: "published" | "draft";
             };
@@ -1652,13 +1654,13 @@ export interface operations {
                      *       "request_id": "req_8aa1",
                      *       "events": [
                      *         {
-                     *           "id": "109a34df-1b50-4ac3-9045-01934a2fe3d8",
+                     *           "id": "00000000-0000-4000-8000-000000000001",
                      *           "occurred_at": "2026-09-02T12:44:10Z",
                      *           "action": "configuration.question.deactivated",
                      *           "origin": "studio_jwt",
                      *           "actor": {
                      *             "type": "cognito_user",
-                     *             "id": "714c7cd0-1096-47e4-9f6b-e73d907f281f"
+                     *             "id": "00000000-0000-4000-8000-000000000002"
                      *           },
                      *           "scopes": [
                      *             "configuration:read",
@@ -1679,7 +1681,7 @@ export interface operations {
                      *             }
                      *           },
                      *           "details": {
-                     *             "config_version_id": "8e9f2cf0-f25d-4900-a066-e87fe6424d0b",
+                     *             "config_version_id": "00000000-0000-4000-8000-000000000003",
                      *             "draft_revision": 43
                      *           }
                      *         }
@@ -1842,10 +1844,7 @@ export interface operations {
                 limit?: number;
                 /** @description Recherche textuelle simple sur le libellé de la question. */
                 search?: string;
-                /**
-                 * @description `draft` exige `configuration:write`, contrôlé par le service et non
-                 *     par l'authorizer, qui ne voit pas les paramètres de requête.
-                 */
+                /** @description `draft` exige `configuration:read` et `configuration:write`. */
                 state?: "published" | "draft";
                 type?: components["schemas"]["QuestionType"];
             };

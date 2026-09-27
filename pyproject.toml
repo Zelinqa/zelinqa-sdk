@@ -7,7 +7,7 @@ requires-python = ">=3.11"
 authors = [{ name = "Zelinqa", email = "support@zelinqa.ai" }]
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-keywords = ["zelinqa", "next-best-question", "conversational-ai", "zelinqa"]
+keywords = ["zelinqa", "next-best-question", "conversational-ai"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",

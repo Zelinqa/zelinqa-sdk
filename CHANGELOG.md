@@ -6,6 +6,9 @@
   `ZelinqaConfigurationClient`; Python also provides async clients.
 - V1 runtime sessions, next question, context/events, progress and feedback.
 - `Session.answer` with text or choice labels; IDs stay in the integration layer.
+- Open answers require the person's text before a request is sent. Explicit
+  `asked_no_answer` and `refused` outcomes remain valid without text for all types.
+  Choice-only answers remain supported for closed and semi-open questions.
 - Current question metadata: editorial `source` and semi-open `selection_mode`.
 - Configuration read/edit/publish, compilation polling, CSV export and audit.
 - Typed errors, optimistic concurrency, retry/idempotency support.

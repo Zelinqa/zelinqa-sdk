@@ -42,6 +42,16 @@ export function answerTurn(pending: PendingDecisionView | null, answer: AnswerIn
       ...(answer.freeText !== undefined ? { free_text: answer.freeText } : {}),
     };
   }
+  if (
+    candidate.type === "open" &&
+    answer.outcome !== "asked_no_answer" &&
+    answer.outcome !== "refused" &&
+    !answer.userText?.trim()
+  ) {
+    throw new Error(
+      "An open question requires userText unless outcome is asked_no_answer or refused",
+    );
+  }
   if (answer.userText === undefined && !structured && answer.outcome === undefined) {
     throw new Error("Provide an answer, choices, or an explicit outcome");
   }

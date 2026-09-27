@@ -1,7 +1,8 @@
-# Zelinqa SDKs
+# @zelinqa/sdk
 
-Official Python and TypeScript clients for the [Zelinqa Engine](https://docs.zelinqa.ai)
-V1 public API (`https://api.zelinqa.ai`).
+Official TypeScript client for the [Zelinqa Engine](https://docs.zelinqa.ai)
+V1 public API (`https://api.zelinqa.ai`). A [Python client](https://github.com/Zelinqa/nbq-sdk/blob/main/python/README.md)
+is also available as `zelinqa`.
 
 Zelinqa Engine keeps the canonical state of a conversation server-side and answers
 one question: given what this conversation already told you, what should be
@@ -9,26 +10,39 @@ asked next? You configure objectives and a question bank in Zelinqa Studio, publ
 an immutable version, and the API selects the next question from the session
 state.
 
-Both SDKs are generated from / aligned on `openapi/nbq-v1.openapi.yaml`, the
-frozen V1 contract — never the other way round. Field names on the wire are
-`snake_case`, exactly as in the contract.
+The SDK follows the versioned V1 contract. Field names on the wire are
+`snake_case`.
 
-## Status
+```bash
+pnpm add @zelinqa/sdk
+```
 
-**1.0.0 is prepared, not published.** The packages are not on PyPI or npm at
-version 1.0.0 yet: publication requires release review and maintainer approval.
-See [`PUBLISHING.md`](PUBLISHING.md).
+```ts
+import { ZelinqaClient } from "@zelinqa/sdk";
+
+const client = new ZelinqaClient({ apiKey: process.env.ZELINQA_API_KEY ?? "" });
+const conversation = await client.startSession({ client_reference: "demo-001" });
+let proposal = await conversation.next();
+// Ask proposal.candidates[0].text, then pass the visitor's answer:
+proposal = await conversation.answer({ userText: "We need to qualify inbound requests" });
+```
+
+The handle tracks the session and decision identifiers. See the
+[TypeScript guide](https://github.com/Zelinqa/nbq-sdk/blob/main/typescript/README.md)
+for choice answers, configuration, errors and retries.
+
+## SDKs
 
 | | Python | TypeScript |
 |---|---|---|
 | Package | `zelinqa` | `@zelinqa/sdk` |
-| Version | 1.0.0 (prepared) | 1.0.0 (prepared) |
+| Version | 1.0.0 | 1.0.0 |
 | Runtime | Python 3.11+ | Node ≥ 22 |
 | Dependencies | `httpx`, `pydantic` v2 | none |
-| Guide | [`python/README.md`](python/README.md) | [`typescript/README.md`](typescript/README.md) |
+| Guide | [Python guide](https://github.com/Zelinqa/nbq-sdk/blob/main/python/README.md) | [TypeScript guide](https://github.com/Zelinqa/nbq-sdk/blob/main/typescript/README.md) |
 
 ```bash
-uv add zelinqa              # or: pip install zelinqa
+uv add zelinqa          # or: pip install zelinqa
 pnpm add @zelinqa/sdk   # or: npm install / yarn add
 ```
 
@@ -44,19 +58,11 @@ split the same way.
 
 Scope rules worth knowing:
 
-- The **gateway authorizer** decides statically, from the method and the path:
-  a `runtime` key on `/v1/configuration` is refused before the service sees it.
-- The **service** adds a dynamic check where the scope depends on the request
-  body or query. Today the only case is `?state=draft`.
-- **Reading a draft therefore needs both `configuration:read` and
-  `configuration:write`**: `read` for the authorizer, `write` for the service.
-  A write-only key cannot read the draft; a read-only key gets
-  `insufficient_scope`.
-- `configuration:publish` is also what gates the audit log — it contains
-  operator identities.
-- The tenant is never sent by the client. The authorizer resolves the key and
-  injects the tenant, the domain and the scopes; any `x-tenant-id`, `x-nbq-id` or
-  `x-scopes` header you send is overwritten.
+- A `runtime` key cannot read configuration.
+- **Reading a draft requires both `configuration:read` and
+  `configuration:write`**. A read-only key receives `insufficient_scope`.
+- Reading the audit log requires `configuration:publish`.
+- The domain and tenant are derived from the API key; clients do not send them.
 
 ## Runtime flow
 
@@ -89,6 +95,19 @@ The handle supplies session, version, decision and question IDs. Use
 unknown, duplicate or ambiguous labels are rejected locally. Semi-open questions
 respect `selection_mode`. `free_text` / `freeText` supplements a selected choice;
 for an unlisted answer use `user_text` / `userText` instead.
+
+Answer rules (validated locally by `answer()` before any network request):
+
+- **Open question:** send the person's actual words in `user_text` / `userText`.
+  Text is analyzed by the engine. An outcome alone is not an open answer.
+- **Closed or semi-open question:** choices alone require no model call.
+  For semi-open questions, `free_text` / `freeText` may supplement a selected
+  choice. Additional text is analyzed by the engine.
+- **No answer or refusal:** `outcome="asked_no_answer"` or `outcome="refused"`
+  is accepted without text for every question type and requires no model call.
+
+These no-model paths assume no other text is supplied for analysis and an
+unambiguous question. Initial `next()` and context-only updates are unchanged.
 
 Call mutations sequentially per handle. Persist `conversation.id` in your backend,
 not the LLM prompt, to call `resume_session` / `resumeSession` after restart.
@@ -216,7 +235,9 @@ of catching an exception. Only running out of time raises
 
 ## Errors
 
-Same class names in both languages; every exception derives from `ZelinqaError`.
+The SDK-specific error classes have the same names in both languages. Python SDK
+exceptions derive from `ZelinqaError`; TypeScript may also throw native errors
+for invalid local arguments, choice labels, or caller cancellation.
 The envelope `code` decides the type first, then the HTTP status when the body
 is not a V1 envelope.
 
@@ -237,7 +258,7 @@ is not a V1 envelope.
 
 Gateway semantics matter here: a missing `Authorization` header is `401`
 `{"message":"Unauthorized"}`, while an invalid, revoked or expired key **and** a
-key missing the scope the authorizer requires for that route both return the
+key missing a scope required for the route both return the
 same opaque `403 {"message":"Forbidden"}`. The SDKs do not pretend to tell those
 two apart — both become `ZelinqaAuthenticationError`; read the status code to
 separate a missing header from a refused key. `ZelinqaInsufficientScopeError` is
@@ -340,14 +361,14 @@ ZELINQA_LIVE=1 pnpm test:live
 ```
 
 They upsert a throwaway corpus so re-runs work, log only request ids and error
-codes, and space their LLM-backed calls to respect the Bedrock quota. In CI they
+codes, and space their model-backed calls to respect service limits. In CI they
 run only from the manual `live-tests.yml` workflow (`workflow_dispatch`, secrets
 from the `staging-live` environment), never on a pull request.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for release history.
+See the [changelog](https://github.com/Zelinqa/nbq-sdk/blob/main/CHANGELOG.md) for release history.
 
 ## License
 
-Apache-2.0. See [`LICENSE`](LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/Zelinqa/nbq-sdk/blob/main/LICENSE).

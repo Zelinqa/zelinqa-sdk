@@ -6,16 +6,12 @@ info:
   description: |
     Contrat public de Zelinqa V1, servi sur `https://api.zelinqa.ai`.
 
-    Ce document est la **source de vérité** pour `nbq-sdk` (Python et TypeScript) et
-    pour `nbq-mcp`. Les SDK et le serveur MCP sont générés ou alignés depuis ce
-    contrat, jamais l'inverse.
+    Ce document décrit le contrat utilisé par les intégrations API et SDK.
 
     ## Principes contractuels
 
-    - **Le tenant n'est jamais fourni par le client.** L'authorizer de l'API Gateway
-      publique résout la clé, puis injecte le tenant, le domaine et les scopes. Tout
-      header `x-tenant-id`, `x-nbq-id` ou `x-scopes` présent dans la requête entrante
-      est écrasé.
+    - **L'organisation et le domaine sont déterminés par la clé API.** Le client ne
+      les choisit pas dans les en-têtes de la requête.
     - **Toute mutation exige `Idempotency-Key`.** Même clé et même corps renvoient la
       réponse d'origine ; même clé et corps différent produisent
       `idempotency_key_reused`.
@@ -29,9 +25,8 @@ info:
       structurée ou des mises à jour client suffisent : l'extraction sémantique est
       alors dégradée, signalée par `degraded_reasons`, mais le moteur reste
       fonctionnel.
-    - **Aucun interne n'est exposé.** Ni score de sélection, ni preuve sémantique
-      détaillée, ni embedding, ni prompt, ni prototype de réponse, ni matrice
-      compilée n'apparaissent dans une réponse publique.
+    - **Les réponses exposent les résultats métier**, sans les calculs internes du
+      moteur.
     - **Le client ne choisit pas la version de configuration.** La session épingle
       en interne la version publiée active au moment de sa création.
 
@@ -55,34 +50,15 @@ info:
     | `runtime` | les cinq routes de session |
     | `configuration:read` | `GET /v1/configuration` (publiée) et `GET /v1/configuration/questions` |
     | `configuration:write` | `POST /v1/configuration/changes` et la lecture du brouillon |
+    | `configuration:publish` | `POST /v1/configuration/publish` et le journal d'audit |
 
-    Deux niveaux de contrôle se complètent. L'authorizer décide **statiquement**,
-    à partir de la méthode et du chemin : c'est lui qui refuse une clé `runtime`
-    sur `/v1/configuration/publish`. Le service ajoute un contrôle **dynamique**
-    là où le scope dépend du contenu de la requête, que l'authorizer ne voit pas :
-    aujourd'hui le seul cas est `?state=draft`, qui exige `configuration:write`
-    sur une route dont l'authorizer n'exige que `configuration:read`.
-    | `configuration:publish` | `POST /v1/configuration/publish` |
+    La lecture du brouillon exige `configuration:read` et
+    `configuration:write`. La configuration publiée exige seulement
+    `configuration:read`.
 
     Chaque opération déclare le scope exigé dans `x-required-scopes`. Un scope
     manquant produit `403 insufficient_scope`.
 
-    ## Frontière de confiance
-
-    L'API Configuration est implémentée par le service `bo-api` mais atteignable par
-    deux portes qui n'ont pas la même confiance :
-
-    - via l'**API Gateway publique** (`6nw77hkcib`, `api.zelinqa.ai`), l'authorizer
-      Lambda authentifie la clé et **écrase** `x-tenant-id` et `x-scopes` ; ces
-      headers font alors autorité ;
-    - via l'**API Gateway bo-api** (`jdkpi8qlv5`, `bo-api.zelinqa.ai`), l'authentification
-      vient des guards NestJS et du JWT Cognito ; **tous** les headers `x-tenant-id`
-      et `x-scopes` fournis par l'appelant sont ignorés.
-
-    Le service distingue obligatoirement l'origine via `requestContext.apiId` avant
-    de construire son contexte d'autorisation. Un JWT valide sur la porte bo-api ne
-    peut jamais obtenir un scope de publication en forgeant un header `x-*`.
-    Ce document ne décrit que la surface publique `api.zelinqa.ai`.
   contact:
     name: Zelinqa
     url: https://docs.zelinqa.ai
@@ -90,8 +66,6 @@ info:
     name: Proprietary — Zelinqa SAS
     identifier: LicenseRef-Zelinqa-Proprietary
   x-contract-status: frozen
-  x-jira: NBQ-304
-  x-supersedes: openapi/nbq-runtime-v2.openapi.yaml
 
 servers:
   - url: https://api.zelinqa.ai
@@ -124,8 +98,8 @@ paths:
         ailleurs, avant l'activation de Zelinqa. Il est consommé **une seule fois** en mémoire pour
         construire l'état initial, puis n'est persisté ni dans l'état, ni dans le
         journal, ni dans les logs applicatifs, et n'est jamais renvoyé. Si le
-        tracing LLM est activé par Zelinqa, le prompt peut apparaître dans
-        LangSmith EU selon la politique de diagnostic et de rétention V1.
+        diagnostic des appels au modèle est activé, les données transmises sont
+        soumises à la politique de diagnostic et de rétention applicable.
       operationId: createSession
       x-required-scopes: [runtime]
       parameters:
@@ -474,13 +448,8 @@ paths:
             `configuration:write` : lire un brouillon revient à voir du travail
             non publié, ce qui relève de l'édition plutôt que de la consultation.
 
-            **Ce contrôle est dynamique, appliqué par le service, pas par
-            l'authorizer.** L'authorizer de la passerelle décide à partir de la
-            méthode et du chemin ; il ne voit pas les paramètres de requête et ne
-            peut donc pas distinguer `?state=draft` de `?state=published`. Il
-            n'exige ici que `configuration:read`, et le service refuse ensuite
-            avec `403 insufficient_scope` si `state=draft` est demandé sans
-            `configuration:write`.
+            La lecture du brouillon exige aussi `configuration:read`. Une clé
+            dépourvue de `configuration:write` reçoit `403 insufficient_scope`.
       responses:
         '200':
           description: Configuration demandée.
@@ -521,8 +490,7 @@ paths:
             enum: [published, draft]
             default: published
           description: |
-            `draft` exige `configuration:write`, contrôlé par le service et non
-            par l'authorizer, qui ne voit pas les paramètres de requête.
+            `draft` exige `configuration:read` et `configuration:write`.
         - name: dimension_id
           in: query
           required: false
@@ -612,8 +580,8 @@ paths:
         Les différences sont volontairement structurelles. Elles indiquent la
         ressource et les champs modifiés, mais ne recopient jamais le texte des
         questions, les libellés, les prompts, les réponses d'un utilisateur ni
-        une clé API en clair. L'identifiant d'une clé actrice est son empreinte
-        SHA-256 déjà stockée par l'authorizer.
+        une clé API en clair. L'identifiant d'une clé actrice est une empreinte
+        non réversible de cette clé.
 
         La pagination utilise un curseur opaque. Le journal des événements de
         session est séparé et n'est jamais renvoyé par cette route.
@@ -658,13 +626,13 @@ paths:
               example:
                 request_id: req_8aa1
                 events:
-                  - id: 109a34df-1b50-4ac3-9045-01934a2fe3d8
+                  - id: 00000000-0000-4000-8000-000000000001
                     occurred_at: '2026-09-02T12:44:10Z'
                     action: configuration.question.deactivated
                     origin: studio_jwt
                     actor:
                       type: cognito_user
-                      id: 714c7cd0-1096-47e4-9f6b-e73d907f281f
+                      id: 00000000-0000-4000-8000-000000000002
                     scopes: [configuration:read, configuration:write, configuration:publish]
                     request_id: req_71aa
                     resource:
@@ -674,7 +642,7 @@ paths:
                       before: { active: true }
                       after: { active: false }
                     details:
-                      config_version_id: 8e9f2cf0-f25d-4900-a066-e87fe6424d0b
+                      config_version_id: 00000000-0000-4000-8000-000000000003
                       draft_revision: 43
                 next_cursor: null
         '401':
@@ -1025,17 +993,11 @@ components:
       scheme: bearer
       bearerFormat: Zelinqa API key
       description: |
-        Clé d'intégration préfixée `nbq_live_`, envoyée dans
-        `Authorization: Bearer nbq_live_…` et résolue par l'authorizer Lambda de
-        l'API Gateway publique. L'authorizer valide la clé, puis **injecte** en amont
-        du service les headers de contexte `x-tenant-id`, `x-nbq-id` et `x-scopes` —
-        `x-scopes` étant la liste des scopes de la clé séparés par des **virgules**,
-        par exemple `runtime,configuration:read`.
-
-        Ces headers ne sont jamais acceptés depuis le client : toute valeur entrante
-        est écrasée. Une clé absente ou invalide produit `401` au niveau de la
-        passerelle ; une clé valide sans le scope requis produit `403` avec le code
-        `insufficient_scope`.
+        Clé d'intégration envoyée dans `Authorization: Bearer <clé API>`.
+        L'organisation, le domaine et les scopes sont déterminés par cette clé :
+        aucun en-tête d'identité fourni par le client ne peut les remplacer.
+        Une clé absente, invalide ou sans le scope requis est refusée ; voir les
+        réponses `401` et `403` des opérations concernées.
 
   parameters:
     SessionId:
@@ -1163,6 +1125,16 @@ components:
         `assistant_text`, la réponse structurée et le contexte — ce qui permet à
         l'agent hôte de reformuler librement les questions. Une valeur explicite du
         client reste prioritaire sur l'inférence et est validée.
+
+        Open questions require a non-blank `user_text`, unless `outcome` is
+        explicitly `asked_no_answer` or `refused`. Otherwise the runtime returns
+        HTTP 422 `invalid_previous_turn` before model analysis. `client_updates`
+        and `context_update` do not replace the required `previous_turn.user_text`.
+        Closed questions accept `structured_answer.choice_ids` without text.
+        Semi-open questions also accept choices alone, with `free_text` when the
+        person adds a comment. Both choice question types also accept `user_text`.
+        Explicit `asked_no_answer` and `refused` outcomes need no text on any type.
+        Context-only requests and the first `next` without `previous_turn` are unchanged.
       properties:
         decision_id:
           type: string
@@ -1184,9 +1156,11 @@ components:
           minLength: 1
           maxLength: 8000
           description: |
-            Verbatim optionnel. Peut être omis lorsque `structured_answer` ou
-            `client_updates` suffisent : l'extraction sémantique devient dégradée,
-            signalée par `degraded_reasons`, mais le moteur reste fonctionnel.
+            The person's actual reply. Required for an open question unless
+            `outcome` is `asked_no_answer` or `refused`; optional for closed and
+            semi-open questions. Text is analyzed by the engine. Choices alone,
+            or an explicit no-answer/refusal outcome alone, need no model analysis
+            when the question is unambiguous and no other text is supplied.
         structured_answer:
           $ref: '#/components/schemas/StructuredAnswer'
         message_id:
@@ -1617,7 +1591,7 @@ components:
         une dépendance des intégrations.
 
         **Invariants garantis par le moteur**, non exprimés en JSON Schema pour
-        rester générables en SDK, et couverts par les tests de contrat (NBQ-313) :
+        rester générables en SDK :
 
         - `action: ask` implique `decision_id` non nul, `stop_reason` nul et au
           moins un candidat ;
@@ -2697,12 +2671,9 @@ components:
             Identifiant stable et lisible de l'anomalie, en minuscules avec des
             traits de soulignement.
 
-            **Volontairement non figé en énumération.** Les validations de
-            publication se stabiliseront avec NBQ-108, NBQ-306 et NBQ-311, en
-            particulier celles liées à la génération des cibles d'exploration :
-            fermer le catalogue maintenant imposerait une modification du contrat
-            à chaque validation découverte, et certains codes envisagés se
-            révéleraient prématurés. Il sera figé avant la génération des SDK.
+            **Volontairement non figé en énumération.** Le catalogue peut évoluer
+            avec les règles de validation ; un client doit traiter les codes
+            inconnus en affichant leur message.
 
             Codes déjà employés, à traiter comme un socle et non comme une liste
             exhaustive : `question_without_dimension`,
@@ -2855,14 +2826,9 @@ components:
 
     Unauthorized:
       description: |
-        Clé absente, malformée, inconnue, révoquée, expirée, ou rattachée à un domaine
-        suspendu. Le refus vient de l'authorizer de la passerelle, avant que la
-        requête n'atteigne le service : le corps est donc produit par la passerelle
-        et peut ne pas suivre l'enveloppe d'erreur métier.
-
-        La distinction avec `403` est nette : `401` signifie « je ne sais pas qui
-        vous êtes », `403` signifie « je sais qui vous êtes, mais cette clé ne porte
-        pas le scope requis ».
+        Clé absente ou refusée. La passerelle peut produire un corps d'erreur
+        différent de l'enveloppe métier. Un refus lié aux droits peut aussi
+        prendre la forme d'un `403`.
       content:
         application/json:
           schema:
@@ -3035,11 +3001,21 @@ components:
       description: |
         Le tour précédent est incohérent, ou les contraintes de l'appel ne laissent
         aucune question possible.
+        HTTP 422 `invalid_previous_turn` also applies when an open question has
+        no non-blank `previous_turn.user_text` and its outcome is neither
+        `asked_no_answer` nor `refused`. Validation runs before model analysis.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
           examples:
+            open_question_without_text:
+              summary: An open question requires the person's actual reply
+              value:
+                code: invalid_previous_turn
+                message: une question ouverte répondue exige user_text
+                request_id: req_open_without_text
+                details: {}
             invalid_previous_turn:
               summary: Les identifiants fournis contredisent la décision en attente
               value:

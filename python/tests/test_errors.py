@@ -300,6 +300,16 @@ def test_idempotency_contention_uses_details_retry_after() -> None:
     assert error.retry_after == 1.0
 
 
+def test_idempotency_contention_caps_details_retry_after() -> None:
+    payload = {
+        **response_example("IdempotencyContention"),
+        "details": {"retry_after_seconds": 3600},
+    }
+    error = raised(503, payload)
+    assert isinstance(error, ZelinqaIdempotencyContentionError)
+    assert error.retry_after == 30.0
+
+
 def test_idempotency_contention_is_retried_then_raised() -> None:
     payload = response_example("IdempotencyContention")
     attempts: list[httpx.Request] = []

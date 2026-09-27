@@ -131,3 +131,86 @@ def test_configuration_metadata_and_explicit_null_are_preserved():
         "source": "llm_generated",
         "selection_mode": None,
     }
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"outcome": "asked_answered"},
+        {"outcome": "skipped"},
+        {"user_text": ""},
+        {"user_text": " \t\n"},
+        {"assistant_text": "What do you need?"},
+    ],
+)
+def test_open_answer_requires_actual_text(kwargs):
+    with pytest.raises(ValueError, match="open question requires user_text"):
+        answer_turn(pending("open", None), **kwargs)
+
+
+@pytest.mark.parametrize("kind", ["open", "single_choice", "multiple_choice", "semi_open"])
+@pytest.mark.parametrize("outcome", ["asked_no_answer", "refused"])
+def test_explicit_no_answer_allowed_without_text(kind, outcome):
+    turn = answer_turn(pending(kind), outcome=outcome)
+    assert turn.outcome == outcome
+    assert turn.user_text is None
+    assert turn.structured_answer is None
+
+
+@pytest.mark.parametrize(
+    "kind,kwargs",
+    [
+        ("open", {"user_text": "I need to qualify inbound requests"}),
+        ("single_choice", {"choice_labels": ["Email"]}),
+        ("multiple_choice", {"choice_labels": ["Email", "Téléphone"]}),
+        ("semi_open", {"choice_labels": ["Email"]}),
+        ("semi_open", {"choice_labels": ["Email"], "free_text": "Also by mail"}),
+        ("semi_open", {"user_text": "A different channel"}),
+        ("single_choice", {"choice_labels": ["Email"], "user_text": "Email is easiest"}),
+    ],
+)
+def test_valid_answer_forms_are_preserved(kind, kwargs):
+    turn = answer_turn(pending(kind), **kwargs)
+    assert turn.question_id == "question-secret"
+    assert turn.user_text == kwargs.get("user_text")
+
+
+def test_selected_candidate_type_is_used():
+    mixed = pending("open", None)
+    closed = pending("single_choice", "single").candidates[0]
+    closed.rank = 2
+    mixed.candidates.append(closed)
+    assert answer_turn(mixed, candidate_rank=2, choice_labels=["Email"]).structured_answer
+
+
+def test_sync_open_answer_rejected_before_network_and_state_unchanged():
+    state = copy.deepcopy(SESSION_NEUVE)
+    state["pending_decision"] = pending("open", None).model_dump()
+    state["versions"]["state_version"] = 7
+    recorder = Recorder(json_response(200, state), json_response(200, DECISION_NORMALE))
+    with sync_client(recorder) as client:
+        session = client.resume_session(state["session_id"])
+        with pytest.raises(ValueError, match="requires user_text"):
+            session.answer(outcome="asked_answered")
+        assert len(recorder.requests) == 1
+        assert session.state_version == 7
+        session.answer(outcome="refused")
+        assert len(recorder.requests) == 2
+        assert recorder.body()["previous_turn"]["outcome"] == "refused"
+
+
+async def test_async_open_answer_rejected_before_network_and_state_unchanged():
+    state = copy.deepcopy(SESSION_NEUVE)
+    state["pending_decision"] = pending("open", None).model_dump()
+    state["versions"]["state_version"] = 7
+    recorder = Recorder(json_response(200, state), json_response(200, DECISION_NORMALE))
+    async with async_client(recorder) as client:
+        session = await client.resume_session(state["session_id"])
+        with pytest.raises(ValueError, match="requires user_text"):
+            await session.answer(outcome="asked_answered")
+        assert len(recorder.requests) == 1
+        assert session.state_version == 7
+        await session.answer(outcome="asked_no_answer")
+        assert len(recorder.requests) == 2
+        assert recorder.body()["previous_turn"]["outcome"] == "asked_no_answer"

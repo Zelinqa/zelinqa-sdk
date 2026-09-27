@@ -12,6 +12,7 @@ an exception, a ``repr`` or a returned value.
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 import random
 import time
@@ -25,6 +26,7 @@ import httpx
 
 from ._version import __version__
 from .errors import (
+    MAX_RETRY_AFTER_SECONDS,
     ZelinqaAPIError,
     ZelinqaConnectionError,
     api_error_from_response,
@@ -261,7 +263,9 @@ def _details_retry_after(payload: Any) -> float | None:
     value = details.get("retry_after_seconds")
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    return max(float(value), 0.0)
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return float(min(max(value, 0.0), MAX_RETRY_AFTER_SECONDS))
 
 
 def error_for(attempt: Attempt) -> ZelinqaAPIError:

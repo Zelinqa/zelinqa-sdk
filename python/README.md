@@ -18,10 +18,17 @@ uv add zelinqa          # or: pip install zelinqa
 
 ## Two clients, two keys
 
-**Zelinqa 1.0.0 is prepared, not yet published.** Use `session.answer("the actual reply")`
-after `session.next()` to avoid copying technical IDs. Choices use
-`session.answer(choice_labels=["Exact label"])`. Async handles offer the same
-methods with `await`. See the root README for restart/concurrency rules.
+Use `session.answer("the actual reply")` after `session.next()` to avoid copying
+technical IDs. Choices use `session.answer(choice_labels=["Exact label"])`.
+
+Open questions require the person's actual `user_text`; the engine analyzes
+that text. Closed and semi-open questions accept choices alone without a model
+call. Semi-open choices may include `free_text`, which is analyzed. An explicit
+`outcome="asked_no_answer"` or `outcome="refused"` needs no text or model call
+for any type. These no-model paths assume no other text needs analysis.
+`answer()` rejects an open answer without text locally, before any HTTP request.
+Async handles offer the same methods with `await`. Persist the session ID in
+your backend to resume after a restart; use one handle sequentially.
 
 
 A Zelinqa key carries scopes. Studio recommends one key per job, so the SDK is
@@ -35,8 +42,8 @@ split the same way.
 ```python
 from zelinqa import ZelinqaClient, ZelinqaConfigurationClient
 
-runtime = ZelinqaClient("nbq_live_…")                  # scope runtime
-studio = ZelinqaConfigurationClient("nbq_live_…")       # management scopes
+runtime = ZelinqaClient("YOUR_RUNTIME_KEY")             # scope runtime
+studio = ZelinqaConfigurationClient("YOUR_CONFIG_KEY")  # management scopes
 ```
 
 ### Environment variables
@@ -116,7 +123,15 @@ with ZelinqaClient() as client:
 ```
 
 `Session` exposes `id`, `state_version`, `state`, `pending_decision`, and
-`next()`, `apply_events()`, `refresh()`, `submit_feedback()`.
+`next()`, `answer()`, `apply_events()`, `refresh()`, `submit_feedback()`.
+
+`answer(user_text)` submits an open answer to the pending decision. For a choice
+question, pass `choice_labels=["Exact displayed label"]` instead. The handle
+resolves the decision, question and choice IDs; it rejects unknown or ambiguous
+labels locally. For a semi-open choice with an additional explanation, pass
+`free_text` alongside `choice_labels`. It then requests the next decision.
+The exported `answer_turn(pending_decision, user_text="...")` builds only the
+`previous_turn` payload and makes no HTTP call.
 
 After a crash, read the session back — there is no resume token to keep:
 
@@ -377,9 +392,7 @@ service instead.
 - The key lives in the `httpx` client and nowhere else: no exception, message,
   `repr`, log line or returned value contains it.
 - Use separate keys per scope. A runtime key must not be able to publish.
-- The tenant is never sent by the client: the gateway authorizer resolves the
-  key and injects the tenant, the domain and the scopes. Any `x-tenant-id`,
-  `x-nbq-id` or `x-scopes` header you send is overwritten.
+- The tenant and domain are derived from the API key, not supplied by the client.
 - `initial_history` is consumed once in memory to build the initial state. It
   is never persisted, never logged, never returned.
 - Keep keys out of the repository. `.env*` and `*.local` are git-ignored.
@@ -412,4 +425,4 @@ See the [changelog](https://github.com/Zelinqa/nbq-sdk/blob/main/CHANGELOG.md) f
 
 ## License
 
-Apache-2.0. See [LICENSE](../LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/Zelinqa/nbq-sdk/blob/main/LICENSE).

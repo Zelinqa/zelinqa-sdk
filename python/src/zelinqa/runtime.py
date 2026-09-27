@@ -321,7 +321,7 @@ class Session:
     """Handle over one session that remembers ``state_version``.
 
     Every response updates the tracked version. A ``state_version_conflict`` is
-    raised as :class:`~nbq.errors.ZelinqaStateVersionConflictError` and the handle
+    raised as :class:`~zelinqa.errors.ZelinqaStateVersionConflictError` and the handle
     is left untouched: refreshing on the caller's behalf would hide the fact
     that somebody else moved the session. Call :meth:`refresh` to resynchronise.
     """

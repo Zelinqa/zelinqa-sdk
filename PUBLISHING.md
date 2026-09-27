@@ -1,6 +1,6 @@
 # Publishing Zelinqa 1.0.0
 
-**Prepared, not published. Merge and registry publication require maintainer approval.**
+Merge and registry publication require maintainer approval.
 
 Release targets: Python `zelinqa` and TypeScript `@zelinqa/sdk`.
 Publish only to these registry projects; do not overwrite other distributions.
@@ -8,6 +8,7 @@ Publish only to these registry projects; do not overwrite other distributions.
 ## Gates
 
 - Reviewed release commit merged by a maintainer; functional CI green on that commit.
+- Check the README text and packaged links against the intended registry state.
 - Python: `uv sync --locked; uv run pytest; uv run mypy python/src; uv build`.
 - TypeScript: `pnpm install --frozen-lockfile; pnpm check; pnpm build; pnpm pack`.
 - Clean wheel install and ESM/CommonJS tarball imports tested.

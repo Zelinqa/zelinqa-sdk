@@ -7,14 +7,23 @@ publish an immutable version, and the API picks the next question from the sessi
 state it keeps for you.
 
 Zero runtime dependencies, ESM + CommonJS, full type declarations generated from
-the OpenAPI contract. Node ≥ 22.
+the OpenAPI contract. Node ≥ 22. TypeScript consumers need ES2022 and DOM type
+libraries for `fetch`, `Request`, `URL` and `AbortSignal` (or equivalent Node
+fetch types).
 
 ## Install
 
-**Zelinqa 1.0.0 is prepared, not yet published.** Use
-`await session.answer({ userText: "the actual reply" })` after `session.next()`.
-Choices use `{ choiceLabels: ["Exact label"] }`. Technical IDs stay in the handle;
-see the root README for restart/concurrency rules.
+Use `await session.answer({ userText: "the actual reply" })` after
+`session.next()`. Choices use `{ choiceLabels: ["Exact label"] }`. The handle
+resolves technical IDs. Persist the session ID in your backend to resume after
+a restart; use one handle sequentially.
+
+Open questions require the person's actual `userText`; the engine analyzes
+that text. Closed and semi-open questions accept choices alone without a model
+call. Semi-open choices may include `freeText`, which is analyzed. An explicit
+`outcome: "asked_no_answer"` or `outcome: "refused"` needs no text or model call
+for any type. These no-model paths assume no other text needs analysis.
+`answer()` rejects an open answer without text locally, before any HTTP request.
 
 
 ```bash
@@ -123,6 +132,14 @@ The handle exposes `id`, `stateVersion`, `state` (the last full `SessionState`),
 and `pendingDecision`. `refresh()` re-reads the session — after a crash, that is
 all you need: the pending decision comes back with its exact candidates, so no
 resume token exists or is needed.
+
+`session.answer({ userText: "..." })` resolves the pending question's technical
+identifiers and requests the next decision. For a choice question, use
+`session.answer({ choiceLabels: ["Exact displayed label"] })`. A semi-open
+choice can add `freeText`. Unknown, duplicate or ambiguous labels are rejected
+locally. The exported `answerTurn(pendingDecision, answer)` builds only the
+`previous_turn` payload and makes no HTTP call; use it when calling `next()`
+directly.
 
 `resumeSession(sessionId)` builds a handle from an existing session.
 
@@ -253,7 +270,9 @@ all at once. Display `message`; never assume you know every `code`.
 
 ## Errors
 
-Everything the SDK raises derives from `ZelinqaError`.
+SDK HTTP, connection and compilation errors derive from `ZelinqaError`.
+Invalid local arguments, choice labels and caller cancellation can instead
+raise native JavaScript errors.
 
 | Class | When |
 |---|---|
@@ -330,4 +349,4 @@ wire. Regenerate with `pnpm generate:types`.
 
 ## License
 
-Apache-2.0. See `LICENSE`.
+Apache-2.0. See [LICENSE](https://github.com/Zelinqa/nbq-sdk/blob/main/LICENSE).

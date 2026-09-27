@@ -1,16 +1,11 @@
 # OpenAPI contract snapshot
 
-`nbq-v1.openapi.yaml` is a verbatim copy of `openapi/nbq-v1.openapi.yaml` from
-`Zelinqa/nbq-engine` at commit `98b7ae4` (`origin/main`, 2026-09-11). It is the
-source of truth for both SDKs: TypeScript types are generated from it and the
-Python models are validated against every example it contains.
+`nbq-v1.openapi.yaml` is a versioned snapshot of the Zelinqa V1 API contract.
+The TypeScript types are generated from it; Python models are checked against
+its examples. Wire field names follow the contract exactly.
 
-Update it only by copying the file from `nbq-engine` `origin/main`; never edit
-it by hand.
+Contract changes originate in the API release and are synchronized here before
+the SDK types are regenerated. Do not edit generated types by hand.
 
-Verification log (byte-for-byte `diff` against `nbq-engine` `origin/main`):
-
-| Date | `nbq-engine` commit | Result |
-|---|---|---|
-| 2026-09-11 | `98b7ae4` | snapshot taken |
-| 2026-09-13 | `752161b` | identical; engine PRs #47 to #54 did not touch the contract |
+The API specification carries the license declared in its `info.license` field;
+the SDK implementation is distributed under Apache-2.0.

@@ -27,7 +27,7 @@ const MIN_IDEMPOTENCY_KEY_CHARS = 8;
 const MAX_IDEMPOTENCY_KEY_CHARS = 128;
 const MAX_PATH_SEGMENT_CHARS = 128;
 
-const TIMEOUT_REASON = Symbol("nbq.attempt.timeout");
+const TIMEOUT_REASON = Symbol("zelinqa.attempt.timeout");
 
 export type QueryValue = string | number | boolean | undefined;
 export type QueryParams = Readonly<Record<string, QueryValue>>;
