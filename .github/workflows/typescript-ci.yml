@@ -3,6 +3,7 @@ name: TypeScript SDK CI
 on:
   pull_request:
     paths:
+      - 'README.md'
       - 'typescript/**'
       - 'openapi/**'
       - 'scripts/**'
@@ -17,6 +18,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'README.md'
       - 'typescript/**'
       - 'openapi/**'
       - 'scripts/**'
