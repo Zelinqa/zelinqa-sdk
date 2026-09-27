@@ -421,8 +421,8 @@ with secrets from the `staging-live` environment.
 
 ## Changelog
 
-See the [changelog](https://github.com/Zelinqa/nbq-sdk/blob/main/CHANGELOG.md) for release history.
+See the [changelog](https://github.com/Zelinqa/zelinqa-sdk/blob/main/CHANGELOG.md) for release history.
 
 ## License
 
-Apache-2.0. See [LICENSE](https://github.com/Zelinqa/nbq-sdk/blob/main/LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/Zelinqa/zelinqa-sdk/blob/main/LICENSE).

@@ -21,7 +21,7 @@ Publish only to these registry projects; do not overwrite other distributions.
 ## PyPI: new project
 
 Configure a **pending publisher** for `zelinqa` if no project exists:
-owner `Zelinqa`, repository `nbq-sdk`, workflow
+owner `Zelinqa`, repository `zelinqa-sdk`, workflow
 `publish-python-sdk.yml`, environment `pypi`.
 A pending publisher does not reserve a name. Do not publish a placeholder.
 [Official PyPI instructions](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
@@ -45,7 +45,7 @@ A maintainer must perform that setup interactively with 2FA, using the tested ta
 `zelinqa-sdk-1.0.0.tgz`, before enabling OIDC for subsequent releases.
 Do not introduce a permanent token into CI.
 
-Publisher: owner `Zelinqa`, repository `nbq-sdk`, workflow
+Publisher: owner `Zelinqa`, repository `zelinqa-sdk`, workflow
 `publish-typescript-sdk.yml`, environment `npm`.
 [Official npm instructions](https://docs.npmjs.com/trusted-publishers/).
 
@@ -64,4 +64,4 @@ Check provenance and clean Node imports in both ESM and CommonJS.
 3. MCP publication, clean `uvx zelinqa-mcp --version` and protocol checks.
 4. Public documentation/changelog announcement only after the releases exist.
 
-Repository names/URLs and the REST API contract keep their existing identifiers.
+The repository name is `zelinqa-sdk`. The REST API contract keeps its existing identifiers.

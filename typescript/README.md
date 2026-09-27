@@ -349,4 +349,4 @@ wire. Regenerate with `pnpm generate:types`.
 
 ## License
 
-Apache-2.0. See [LICENSE](https://github.com/Zelinqa/nbq-sdk/blob/main/LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/Zelinqa/zelinqa-sdk/blob/main/LICENSE).

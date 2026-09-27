@@ -23,8 +23,8 @@ dependencies = ["httpx>=0.27,<1", "pydantic>=2.7,<3"]
 [project.urls]
 Documentation = "https://docs.zelinqa.ai"
 Homepage = "https://zelinqa.ai"
-Repository = "https://github.com/Zelinqa/nbq-sdk"
-Issues = "https://github.com/Zelinqa/nbq-sdk/issues"
+Repository = "https://github.com/Zelinqa/zelinqa-sdk"
+Issues = "https://github.com/Zelinqa/zelinqa-sdk/issues"
 
 [build-system]
 requires = ["hatchling"]

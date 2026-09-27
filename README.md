@@ -1,7 +1,7 @@
 # @zelinqa/sdk
 
 Official TypeScript client for the [Zelinqa Engine](https://docs.zelinqa.ai)
-V1 public API (`https://api.zelinqa.ai`). A [Python client](https://github.com/Zelinqa/nbq-sdk/blob/main/python/README.md)
+V1 public API (`https://api.zelinqa.ai`). A [Python client](https://github.com/Zelinqa/zelinqa-sdk/blob/main/python/README.md)
 is also available as `zelinqa`.
 
 Zelinqa Engine keeps the canonical state of a conversation server-side and answers
@@ -28,7 +28,7 @@ proposal = await conversation.answer({ userText: "We need to qualify inbound req
 ```
 
 The handle tracks the session and decision identifiers. See the
-[TypeScript guide](https://github.com/Zelinqa/nbq-sdk/blob/main/typescript/README.md)
+[TypeScript guide](https://github.com/Zelinqa/zelinqa-sdk/blob/main/typescript/README.md)
 for choice answers, configuration, errors and retries.
 
 ## SDKs
@@ -39,7 +39,7 @@ for choice answers, configuration, errors and retries.
 | Version | 1.0.0 | 1.0.0 |
 | Runtime | Python 3.11+ | Node ≥ 22 |
 | Dependencies | `httpx`, `pydantic` v2 | none |
-| Guide | [Python guide](https://github.com/Zelinqa/nbq-sdk/blob/main/python/README.md) | [TypeScript guide](https://github.com/Zelinqa/nbq-sdk/blob/main/typescript/README.md) |
+| Guide | [Python guide](https://github.com/Zelinqa/zelinqa-sdk/blob/main/python/README.md) | [TypeScript guide](https://github.com/Zelinqa/zelinqa-sdk/blob/main/typescript/README.md) |
 
 ```bash
 uv add zelinqa          # or: pip install zelinqa
@@ -367,8 +367,8 @@ from the `staging-live` environment), never on a pull request.
 
 ## Changelog
 
-See the [changelog](https://github.com/Zelinqa/nbq-sdk/blob/main/CHANGELOG.md) for release history.
+See the [changelog](https://github.com/Zelinqa/zelinqa-sdk/blob/main/CHANGELOG.md) for release history.
 
 ## License
 
-Apache-2.0. See [LICENSE](https://github.com/Zelinqa/nbq-sdk/blob/main/LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/Zelinqa/zelinqa-sdk/blob/main/LICENSE).
