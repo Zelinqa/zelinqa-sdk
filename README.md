@@ -96,6 +96,19 @@ unknown, duplicate or ambiguous labels are rejected locally. Semi-open questions
 respect `selection_mode`. `free_text` / `freeText` supplements a selected choice;
 for an unlisted answer use `user_text` / `userText` instead.
 
+Answer rules (validated locally by `answer()` before any network request):
+
+- **Open question:** send the person's actual words in `user_text` / `userText`.
+  Text is analyzed by the engine. An outcome alone is not an open answer.
+- **Closed or semi-open question:** choices alone require no model call.
+  For semi-open questions, `free_text` / `freeText` may supplement a selected
+  choice. Additional text is analyzed by the engine.
+- **No answer or refusal:** `outcome="asked_no_answer"` or `outcome="refused"`
+  is accepted without text for every question type and requires no model call.
+
+These no-model paths assume no other text is supplied for analysis and an
+unambiguous question. Initial `next()` and context-only updates are unchanged.
+
 Call mutations sequentially per handle. Persist `conversation.id` in your backend,
 not the LLM prompt, to call `resume_session` / `resumeSession` after restart.
 The helpers add no HTTP call to `/next` and keep no transcript cache. Free text

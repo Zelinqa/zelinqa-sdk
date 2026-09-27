@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { answerTurn, type PendingDecisionView, ZelinqaClient } from "../src/index.js";
+import {
+  type AnswerInput,
+  answerTurn,
+  type PendingDecisionView,
+  type SessionStateResponse,
+  ZelinqaClient,
+} from "../src/index.js";
 import { sharedExample } from "./helpers.js";
 
 const pending: PendingDecisionView = {
@@ -21,6 +27,87 @@ const pending: PendingDecisionView = {
 };
 
 describe("business answers", () => {
+  function pendingType(type: PendingDecisionView["candidates"][number]["type"]) {
+    const p = structuredClone(pending);
+    const candidate = p.candidates[0];
+    if (!candidate) throw new Error("Missing test candidate");
+    candidate.type = type;
+    if (type === "open") {
+      candidate.choices = [];
+      delete candidate.selection_mode;
+    }
+    return p;
+  }
+
+  it.each<AnswerInput>([
+    {},
+    { outcome: "asked_answered" },
+    { userText: "" },
+    { userText: " \t\n" },
+    { assistantText: "What do you need?" },
+  ])("requires actual text for an open answer", (input) => {
+    expect(() => answerTurn(pendingType("open"), input)).toThrow("open question requires userText");
+  });
+
+  it.each(["open", "single_choice", "multiple_choice", "semi_open"] as const)(
+    "allows explicit unanswered outcomes without text for %s",
+    (type) => {
+      for (const outcome of ["asked_no_answer", "refused"] as const) {
+        const turn = answerTurn(pendingType(type), { outcome });
+        expect(turn.outcome).toBe(outcome);
+        expect(turn.user_text).toBeUndefined();
+        expect(turn.structured_answer).toBeUndefined();
+      }
+    },
+  );
+
+  it.each<[PendingDecisionView["candidates"][number]["type"], AnswerInput]>([
+    ["open", { userText: "We need to qualify requests" }],
+    ["single_choice", { choiceLabels: ["Email"] }],
+    ["multiple_choice", { choiceLabels: ["Email", "Phone"] }],
+    ["semi_open", { choiceLabels: ["Email"] }],
+    ["semi_open", { choiceLabels: ["Email"], freeText: "Also mail" }],
+    ["semi_open", { userText: "A different channel" }],
+    ["single_choice", { choiceLabels: ["Email"], userText: "Email is easiest" }],
+  ])("preserves valid %s answer forms", (type, input) => {
+    expect(answerTurn(pendingType(type), input).user_text).toBe(input.userText);
+  });
+
+  it("uses the type of the selected candidate", () => {
+    const mixed = pendingType("open");
+    const second = pending.candidates[0];
+    if (!second) throw new Error("Missing test candidate");
+    mixed.candidates.push({ ...second, rank: 2 });
+    expect(
+      answerTurn(mixed, { candidateRank: 2, choiceLabels: ["Email"] }).structured_answer,
+    ).toEqual({ choice_ids: ["a"] });
+  });
+
+  it("rejects before network without losing the pending decision", async () => {
+    const state = structuredClone(sharedExample("SessionNeuve")) as unknown as SessionStateResponse;
+    state.pending_decision = pendingType("open");
+    state.versions.state_version = 7;
+    const requests: (string | undefined)[] = [];
+    const client = new ZelinqaClient({
+      apiKey: "test",
+      fetch: async (_url, init) => {
+        requests.push(init?.body?.toString());
+        return Response.json(requests.length === 1 ? state : sharedExample("DecisionNormale"));
+      },
+    });
+    const session = await client.resumeSession(state.session_id);
+    await expect(session.answer({ outcome: "asked_answered" })).rejects.toThrow(
+      "requires userText",
+    );
+    expect(requests).toHaveLength(1);
+    expect(session.stateVersion).toBe(7);
+    await session.answer({ outcome: "refused" });
+    expect(requests).toHaveLength(2);
+    expect(JSON.parse(requests[1] ?? "null")).toMatchObject({
+      state_version: 7,
+      previous_turn: { outcome: "refused" },
+    });
+  });
   it("maps exact labels, multi + other, and pending decision", () => {
     expect(
       answerTurn(pending, { choiceLabels: ["Email", "Phone"], freeText: "Mail" }),

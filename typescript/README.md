@@ -18,6 +18,13 @@ Use `await session.answer({ userText: "the actual reply" })` after
 resolves technical IDs. Persist the session ID in your backend to resume after
 a restart; use one handle sequentially.
 
+Open questions require the person's actual `userText`; the engine analyzes
+that text. Closed and semi-open questions accept choices alone without a model
+call. Semi-open choices may include `freeText`, which is analyzed. An explicit
+`outcome: "asked_no_answer"` or `outcome: "refused"` needs no text or model call
+for any type. These no-model paths assume no other text needs analysis.
+`answer()` rejects an open answer without text locally, before any HTTP request.
+
 
 ```bash
 pnpm add @zelinqa/sdk   # or npm install / yarn add

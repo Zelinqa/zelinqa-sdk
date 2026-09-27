@@ -46,6 +46,14 @@ def answer_turn(
                 "Select at least one choice; for an unlisted answer, send user_text instead"
             )
         structured = StructuredAnswer(choice_ids=ids, free_text=free_text)
+    if (
+        candidate.type == "open"
+        and outcome not in ("asked_no_answer", "refused")
+        and not (user_text and user_text.strip())
+    ):
+        raise ValueError(
+            "An open question requires user_text unless outcome is asked_no_answer or refused"
+        )
     if user_text is None and structured is None and outcome is None:
         raise ValueError("Provide an answer, choices, or an explicit outcome")
     return PreviousTurn(

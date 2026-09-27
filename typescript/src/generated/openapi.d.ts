@@ -977,6 +977,16 @@ export interface components {
          *     `assistant_text`, la réponse structurée et le contexte — ce qui permet à
          *     l'agent hôte de reformuler librement les questions. Une valeur explicite du
          *     client reste prioritaire sur l'inférence et est validée.
+         *
+         *     Open questions require a non-blank `user_text`, unless `outcome` is
+         *     explicitly `asked_no_answer` or `refused`. Otherwise the runtime returns
+         *     HTTP 422 `invalid_previous_turn` before model analysis. `client_updates`
+         *     and `context_update` do not replace the required `previous_turn.user_text`.
+         *     Closed questions accept `structured_answer.choice_ids` without text.
+         *     Semi-open questions also accept choices alone, with `free_text` when the
+         *     person adds a comment. Both choice question types also accept `user_text`.
+         *     Explicit `asked_no_answer` and `refused` outcomes need no text on any type.
+         *     Context-only requests and the first `next` without `previous_turn` are unchanged.
          */
         PreviousTurn: {
             /** @description Question ou message réellement envoyé par l'agent hôte, éventuellement reformulé. */
@@ -987,9 +997,11 @@ export interface components {
             question_id?: string;
             structured_answer?: components["schemas"]["StructuredAnswer"];
             /**
-             * @description Verbatim optionnel. Peut être omis lorsque `structured_answer` ou
-             *     `client_updates` suffisent : l'extraction sémantique devient dégradée,
-             *     signalée par `degraded_reasons`, mais le moteur reste fonctionnel.
+             * @description The person's actual reply. Required for an open question unless
+             *     `outcome` is `asked_no_answer` or `refused`; optional for closed and
+             *     semi-open questions. Text is analyzed by the engine. Choices alone,
+             *     or an explicit no-answer/refusal outcome alone, need no model analysis
+             *     when the question is unambiguous and no other text is supplied.
              */
             user_text?: string;
         };
@@ -1449,6 +1461,9 @@ export interface components {
         /**
          * @description Le tour précédent est incohérent, ou les contraintes de l'appel ne laissent
          *     aucune question possible.
+         *     HTTP 422 `invalid_previous_turn` also applies when an open question has
+         *     no non-blank `previous_turn.user_text` and its outcome is neither
+         *     `asked_no_answer` nor `refused`. Validation runs before model analysis.
          */
         NextUnprocessable: {
             headers: {

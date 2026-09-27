@@ -20,6 +20,13 @@ uv add zelinqa          # or: pip install zelinqa
 
 Use `session.answer("the actual reply")` after `session.next()` to avoid copying
 technical IDs. Choices use `session.answer(choice_labels=["Exact label"])`.
+
+Open questions require the person's actual `user_text`; the engine analyzes
+that text. Closed and semi-open questions accept choices alone without a model
+call. Semi-open choices may include `free_text`, which is analyzed. An explicit
+`outcome="asked_no_answer"` or `outcome="refused"` needs no text or model call
+for any type. These no-model paths assume no other text needs analysis.
+`answer()` rejects an open answer without text locally, before any HTTP request.
 Async handles offer the same methods with `await`. Persist the session ID in
 your backend to resume after a restart; use one handle sequentially.
 
