@@ -66,4 +66,4 @@ jobs:
           path: package-artifacts/
 
       - name: Publish with npm Trusted Publishing
-        run: npm publish package-artifacts/*.tgz --access public
+        run: npm publish ./package-artifacts/*.tgz --access public
