@@ -11,6 +11,7 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/python-ci.yml'
+      - '.github/workflows/publish-python-sdk.yml'
   push:
     branches: [main]
     paths:
@@ -22,6 +23,7 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/python-ci.yml'
+      - '.github/workflows/publish-python-sdk.yml'
 
 permissions:
   contents: read

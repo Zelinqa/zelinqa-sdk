@@ -15,6 +15,7 @@ on:
       - 'vitest.live.config.ts'
       - '.changeset/**'
       - '.github/workflows/typescript-ci.yml'
+      - '.github/workflows/publish-typescript-sdk.yml'
   push:
     branches: [main]
     paths:
@@ -30,6 +31,7 @@ on:
       - 'vitest.live.config.ts'
       - '.changeset/**'
       - '.github/workflows/typescript-ci.yml'
+      - '.github/workflows/publish-typescript-sdk.yml'
 
 permissions:
   contents: read
