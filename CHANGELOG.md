@@ -1,6 +1,28 @@
 # Changelog
 
-## 1.0.0 — Unreleased
+## 1.0.1 — Unreleased
+
+- Python: `StopReason` accepts `max_turns_reached`. When a session reaches
+  `max_turns`, `next()` returns `action: "stop"` with
+  `stop_reason: "max_turns_reached"`, an empty `candidates` list and no
+  `decision_id`; the session status becomes `stopped` and later calls return the
+  same stop. Version 1.0.0 rejected this response with a validation error.
+- `max_turns_reached` is a stop reason, no longer a `SelectionWarning` value.
+- Python: enumerations emitted only by the server are open: their alias is
+  `Literal[<documented values>] | str`, so a value added by a later API release
+  is returned as a plain string instead of failing validation. This covers
+  `StopReason`, `SelectionWarning`, `DegradedReason`, `SessionStatus`,
+  `ProgressStatus`, `DimensionEffectiveStatus`, `DimensionOverrideValue`,
+  `TargetKind`, `TargetStatus`, `OutcomeSource`, `ConfigurationState`,
+  `CompilationStatusValue`, `CompilationErrorCode`, `ConfigurationIssueEntity`,
+  `ErrorCode` and the audit enumerations. Enumerations a client sends, and
+  `NextAction`, stay closed.
+- TypeScript: types regenerated from the updated contract. `StopReason`
+  includes `max_turns_reached`; `SelectionWarning` no longer does. No runtime
+  change.
+- Guides and READMEs describe the stop at `max_turns`.
+
+## 1.0.0 — 2026-09-27
 
 - Python `zelinqa`, TypeScript `@zelinqa/sdk`, `ZelinqaClient` and
   `ZelinqaConfigurationClient`; Python also provides async clients.
@@ -21,4 +43,4 @@
 Migration: replace `nbq` imports / `@zelinqa/nbq`, `NBQClient` class names and
 `NBQ_*` SDK environment variables with the documented Zelinqa equivalents.
 Existing API keys, REST paths and wire fields do not change. No automatic
-redirect from old packages and no publication is implied by this entry.
+redirect from old packages.

@@ -7,7 +7,7 @@ header) and on 403 (invalid, revoked, or missing a statically checked scope).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, get_args
 
 import httpx
 import pytest
@@ -129,7 +129,9 @@ def test_every_error_code_of_the_catalogue_is_mapped() -> None:
     from zelinqa.errors import _CODE_ERRORS
     from zelinqa.models import ErrorCode
 
-    documented = set(ErrorCode.__args__)  # type: ignore[attr-defined]
+    # ``ErrorCode`` is open: ``Literal[<documented codes>] | str``.
+    known, _ = get_args(ErrorCode)
+    documented = set(get_args(known))
     assert documented == set(_CODE_ERRORS), (
         f"unmapped: {sorted(documented - set(_CODE_ERRORS))}, "
         f"unknown: {sorted(set(_CODE_ERRORS) - documented)}"

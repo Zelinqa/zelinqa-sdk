@@ -13,11 +13,11 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, Union, get_args, get_origin
 
 import pytest
 import yaml
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from zelinqa import models
 
 SCHEMA_PREFIX = "#/components/schemas/"
@@ -140,6 +140,77 @@ def test_named_schema_is_exposed(name: str) -> None:
     if schema.get("type") == "string" and "enum" in schema:
         # A closed enumeration is a Literal alias, never a class.
         assert not isinstance(target, type), f"{name} should be a Literal alias"
+
+
+ENUM_SCHEMA_NAMES = [
+    name
+    for name in MODELLED_SCHEMA_NAMES
+    if SPEC["components"]["schemas"][name].get("type") == "string"
+    and "enum" in SPEC["components"]["schemas"][name]
+]
+
+#: Enumerations a client sends, or that drive the response shape: a value outside
+#: the contract must be rejected. Every other enumeration is emitted by the server
+#: only and stays open to values added by a later API release.
+CLOSED_ENUMS = {
+    "ChangeOperation",
+    "CompletionRole",
+    "DimensionSelectionMode",
+    "FeedbackResult",
+    "NextAction",
+    "ObjectiveOverrideValue",
+    "QualificationLevel",
+    "QuestionOutcome",
+    "QuestionSelectionMode",
+    "QuestionSource",
+    "QuestionType",
+    "Role",
+}
+
+
+def _documented_values(target: Any) -> set[str]:
+    """Values of a ``Literal`` alias, or of the ``Literal`` part of an open alias."""
+
+    args = get_args(target)
+    if str in args:
+        (literal,) = (arg for arg in args if arg is not str)
+        return set(get_args(literal))
+    return set(args)
+
+
+@pytest.mark.parametrize("name", ENUM_SCHEMA_NAMES)
+def test_enumeration_lists_the_documented_values(name: str) -> None:
+    target = getattr(models, name)
+    assert _documented_values(target) == set(SPEC["components"]["schemas"][name]["enum"])
+
+
+def _is_enumeration(target: Any) -> bool:
+    if get_origin(target) is Literal:
+        return True
+    return get_origin(target) is Union and any(
+        get_origin(arg) is Literal for arg in get_args(target)
+    )
+
+
+#: Every enumeration alias the SDK exports, named in the contract or inline.
+ENUM_ALIASES = sorted(name for name in models.__all__ if _is_enumeration(getattr(models, name)))
+
+
+def test_closed_enumerations_exist() -> None:
+    assert set(ENUM_ALIASES) >= CLOSED_ENUMS
+    assert "StopReason" in ENUM_ALIASES and "StopReason" not in CLOSED_ENUMS
+
+
+@pytest.mark.parametrize("name", ENUM_ALIASES)
+def test_only_server_enumerations_accept_unknown_values(name: str) -> None:
+    adapter = TypeAdapter(getattr(models, name))
+    if name in CLOSED_ENUMS:
+        with pytest.raises(ValidationError):
+            adapter.validate_python("a_value_from_a_later_release")
+    else:
+        assert adapter.validate_python("a_value_from_a_later_release") == (
+            "a_value_from_a_later_release"
+        )
 
 
 def test_legacy_schemas_are_not_exposed() -> None:

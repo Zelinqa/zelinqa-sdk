@@ -14,6 +14,7 @@ import httpx
 import pytest
 from spec_examples import (
     ARRET_SANS_QUESTION,
+    DECISION_APRES_MAX_TURNS,
     DECISION_NORMALE,
     SESSION_NEUVE,
     operation_example,
@@ -24,9 +25,11 @@ from zelinqa import (
     AsyncZelinqaClient,
     ClientUpdates,
     ConversationSummary,
+    NextResponse,
     PreviousTurn,
     SelectionOptions,
     Session,
+    SessionStateResponse,
     SetDataUpdate,
     StructuredAnswer,
     ZelinqaClient,
@@ -256,7 +259,25 @@ def test_next_parses_a_hard_stop() -> None:
     assert decision.decision_id is None
     assert decision.stop_reason == "no_question_available"
     assert decision.candidates == []
-    assert set(decision.warnings) == {"objective_achieved", "max_turns_reached"}
+    assert decision.warnings == ["objective_achieved"]
+
+
+def test_next_parses_the_max_turns_stop() -> None:
+    recorder = Recorder(json_response(200, DECISION_APRES_MAX_TURNS))
+    with sync_client(recorder) as client:
+        decision = client.next(
+            "ses_01J8Z",
+            state_version=20,
+            previous_turn={"user_text": "Plutôt dans les trois mois."},
+        )
+
+    assert decision.action == "stop"
+    assert decision.stop_reason == "max_turns_reached"
+    assert decision.decision_id is None
+    assert decision.candidates == []
+    assert decision.turn_count == 10
+    assert decision.turns_remaining == 0
+    assert decision.warnings == []
 
 
 def test_next_rejects_an_invalid_body_before_sending() -> None:
@@ -367,6 +388,36 @@ def test_response_parsing_ignores_unknown_fields() -> None:
         assert client.get_session("ses_01J8Z").session_id == "ses_01J8Z"
 
 
+def test_server_enumerations_accept_values_from_a_later_release() -> None:
+    payload = copy.deepcopy(ARRET_SANS_QUESTION)
+    payload["stop_reason"] = "a_future_stop_reason"
+    payload["warnings"] = ["objective_achieved", "a_future_warning"]
+    payload["degraded"] = True
+    payload["degraded_reasons"] = ["a_future_degraded_reason"]
+    payload["progress"]["objective"]["computed_status"] = "a_future_status"
+    recorder = Recorder(json_response(200, payload))
+    with sync_client(recorder) as client:
+        decision = client.next("ses_01J8Z", state_version=24)
+
+    assert decision.stop_reason == "a_future_stop_reason"
+    assert decision.warnings == ["objective_achieved", "a_future_warning"]
+    assert decision.degraded_reasons == ["a_future_degraded_reason"]
+    assert decision.progress.objective.computed_status == "a_future_status"
+
+
+def test_session_status_accepts_a_value_from_a_later_release() -> None:
+    payload = copy.deepcopy(SESSION_NEUVE)
+    payload["status"] = "a_future_status"
+    assert SessionStateResponse.model_validate(payload).status == "a_future_status"
+
+
+def test_next_action_stays_closed() -> None:
+    payload = copy.deepcopy(ARRET_SANS_QUESTION)
+    payload["action"] = "a_future_action"
+    with pytest.raises(ValueError, match="action"):
+        NextResponse.model_validate(payload)
+
+
 async def test_async_get_session() -> None:
     recorder = Recorder(json_response(200, SESSION_NEUVE))
     async with async_client(recorder) as client:
@@ -451,6 +502,37 @@ def test_handle_clears_the_pending_decision_on_a_stop() -> None:
         session.next()
     assert session.pending_decision is None
     assert session.state_version == 25
+
+
+def test_handle_keeps_returning_the_max_turns_stop() -> None:
+    recorder = Recorder(
+        json_response(201, SESSION_NEUVE),
+        json_response(200, DECISION_APRES_MAX_TURNS),
+    )
+    with sync_client(recorder) as client:
+        session = client.start_session()
+        first = session.next(previous_turn={"user_text": "Plutôt dans les trois mois."})
+        again = session.next()
+
+    for decision in (first, again):
+        assert decision.action == "stop"
+        assert decision.stop_reason == "max_turns_reached"
+    assert session.pending_decision is None
+    assert session.state_version == 21
+    assert "previous_turn" not in recorder.body(2)
+
+
+async def test_async_handle_stops_at_max_turns() -> None:
+    recorder = Recorder(
+        json_response(201, SESSION_NEUVE),
+        json_response(200, DECISION_APRES_MAX_TURNS),
+    )
+    async with async_client(recorder) as client:
+        session = await client.start_session()
+        decision = await session.next(previous_turn={"user_text": "Plutôt dans les trois mois."})
+
+    assert decision.stop_reason == "max_turns_reached"
+    assert session.pending_decision is None
 
 
 def test_handle_tracks_events_and_refresh() -> None:

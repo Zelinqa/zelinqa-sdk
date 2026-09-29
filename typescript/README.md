@@ -69,7 +69,9 @@ store `session.id` in your backend if you need to resume after a restart.
 Open questions need the person's actual words. Choices alone need no model
 call; free text is analyzed by the engine. Report a real refusal with
 `outcome: "refused"`, or an empty reply with `outcome: "asked_no_answer"`.
-Keep warnings visible and let your application decide when to finish.
+Keep warnings visible and let your application decide when to finish. Once the
+session reaches `max_turns`, the decision has `action: "stop"` and
+`stop_reason: "max_turns_reached"`; later calls return the same stop.
 
 ## What you can do
 
