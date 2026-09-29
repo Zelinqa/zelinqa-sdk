@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'README.md'
+      - 'PUBLISHING.md'
       - 'typescript/**'
       - 'openapi/**'
       - 'scripts/**'
@@ -20,6 +21,7 @@ on:
     branches: [main]
     paths:
       - 'README.md'
+      - 'PUBLISHING.md'
       - 'typescript/**'
       - 'openapi/**'
       - 'scripts/**'
