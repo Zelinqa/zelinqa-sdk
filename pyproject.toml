@@ -1,6 +1,6 @@
 [project]
 name = "zelinqa"
-version = "1.0.0"
+version = "1.0.1"
 description = "Official Python SDK for the Zelinqa Next Best Question API"
 readme = "python/README.md"
 requires-python = ">=3.11"

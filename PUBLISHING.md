@@ -1,4 +1,4 @@
-# Publishing Zelinqa 1.0.0
+# Publishing the Zelinqa SDKs
 
 Merge and registry publication require maintainer approval.
 
@@ -16,7 +16,8 @@ Publish only to these registry projects; do not overwrite other distributions.
   keys. Mock tests do not prove server persistence. Verify feedback against storage.
 - Check package availability and ownership again immediately before publication.
 - No credentials in reports, history, files or stdout.
-- Keep all four version files at 1.0.0; do not bump merely to consume old changesets.
+- Keep all four version files at the release version. Bump them by hand; do not run
+  `changeset version` merely to consume old changesets.
 
 ## PyPI: new project
 
@@ -33,7 +34,7 @@ After approval, a maintainer runs from this repository:
 gh workflow run publish-python-sdk.yml --ref main -f confirm=publish-zelinqa
 ```
 
-Verify installation in a clean environment with `uv pip install --python <venv-python> zelinqa==1.0.0`
+Verify installation in a clean environment with `uv pip install --python <venv-python> zelinqa==<version>`
 and `import zelinqa`. Never reuse a published version.
 
 ## npm: new package

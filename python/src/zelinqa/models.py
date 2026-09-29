@@ -1,12 +1,18 @@
 """Pydantic models for the Zelinqa API V1.
 
 One class per named schema of ``openapi/nbq-v1.openapi.yaml``, with the same
-name. Closed enumerations are exposed as ``Literal`` type aliases.
+name. Enumerations are exposed as ``Literal`` type aliases.
 
 Request models are strict (``extra="forbid"``) and carry the contract bounds so
 a mistake is caught before the network call. Response models are forward
 compatible (``extra="ignore"``) and deliberately carry no length or range
 bounds: a future server field must never turn a valid response into an error.
+
+Enumerations that only the server emits are open: their alias is
+``Literal[<documented values>] | str``, so a value added by a later API release
+is accepted as a plain string instead of failing validation. Compare them with
+the documented values and keep a default branch for unknown ones. Enumerations
+a client can send stay closed, as does ``NextAction``.
 """
 
 from __future__ import annotations
@@ -17,76 +23,96 @@ from typing import Annotated, Any, Literal, TypeAlias
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # --------------------------------------------------------------------- enums
+#
+# Closed: sent by clients, or structural to the response.
 
 Role: TypeAlias = Literal["user", "assistant"]
 QuestionType: TypeAlias = Literal["open", "single_choice", "multiple_choice", "semi_open"]
 QuestionSelectionMode: TypeAlias = Literal["single", "multiple"]
 QuestionSource: TypeAlias = Literal["user", "llm_generated"]
 QuestionOutcome: TypeAlias = Literal["asked_answered", "asked_no_answer", "refused"]
-OutcomeSource: TypeAlias = Literal["client", "inferred"]
 ObjectiveOverrideValue: TypeAlias = Literal["achieved", "not_achieved"]
-DimensionOverrideValue: TypeAlias = Literal["achieved", "not_achieved", "excluded"]
 DimensionSelectionMode: TypeAlias = Literal["restrict", "prefer"]
-SessionStatus: TypeAlias = Literal["active", "completed", "stopped"]
 NextAction: TypeAlias = Literal["ask", "stop"]
-StopReason: TypeAlias = Literal["no_question_available"]
-SelectionWarning: TypeAlias = Literal[
-    "max_turns_reached",
-    "objective_achieved",
-    "eligibility_exhausted_fallback",
-    "constraints_relaxed",
-]
-DegradedReason: TypeAlias = Literal[
-    "missing_user_text",
-    "summary_only_context",
-    "semantic_service_unavailable",
-    "unresolved_previous_turn",
-]
-TargetKind: TypeAlias = Literal["data", "exploration"]
-TargetStatus: TypeAlias = Literal["tentative", "confirmed", "conflicted", "not_applicable"]
-ProgressStatus: TypeAlias = Literal["not_started", "in_progress", "covered", "blocked"]
-DimensionEffectiveStatus: TypeAlias = Literal[
-    "not_started", "in_progress", "covered", "blocked", "excluded"
-]
 CompletionRole: TypeAlias = Literal["blocking", "contributing", "optional"]
 QualificationLevel: TypeAlias = Literal["essential", "balanced", "deep"]
 FeedbackResult: TypeAlias = Literal["success", "partial", "failure"]
-ConfigurationState: TypeAlias = Literal["published", "draft"]
-ConfigurationAuditResourceType: TypeAlias = Literal[
-    "objective",
-    "dimension",
-    "success_information",
-    "question",
-    "configuration",
-    "api_key",
-    "domain",
-]
-AuditActorType: TypeAlias = Literal["api_key", "cognito_user"]
-AuditOrigin: TypeAlias = Literal["public_api", "studio_jwt"]
 ChangeOperation: TypeAlias = Literal["create", "update", "delete"]
-CompilationStatusValue: TypeAlias = Literal["queued", "running", "succeeded", "failed"]
-CompilationErrorCode: TypeAlias = Literal[
-    "validation_failed", "llm_unavailable", "timeout", "internal_error"
-]
-ConfigurationIssueEntity: TypeAlias = Literal[
-    "objective", "dimension", "success_information", "question"
-]
-ErrorCode: TypeAlias = Literal[
-    "unauthorized",
-    "insufficient_scope",
-    "idempotency_contention",
-    "state_version_conflict",
-    "idempotency_key_reused",
-    "unknown_session",
-    "invalid_previous_turn",
-    "constraint_no_match",
-    "invalid_choice",
-    "compiled_artifact_unavailable",
-    "configuration_validation_failed",
-    "compilation_in_progress",
-    "unknown_configuration",
-    "unknown_compilation",
-]
+
+# Open: emitted only by the server. A value added by a later API release is
+# accepted as a plain string.
+
+OutcomeSource: TypeAlias = Literal["client", "inferred"] | str
+DimensionOverrideValue: TypeAlias = Literal["achieved", "not_achieved", "excluded"] | str
+SessionStatus: TypeAlias = Literal["active", "completed", "stopped"] | str
+#: Why ``/next`` answered ``action: stop``. ``max_turns_reached``: the session
+#: reached ``max_turns``; every later ``/next`` returns the same stop.
+#: ``no_question_available``: no identifiable question is left.
+StopReason: TypeAlias = Literal["no_question_available", "max_turns_reached"] | str
+SelectionWarning: TypeAlias = (
+    Literal[
+        "objective_achieved",
+        "eligibility_exhausted_fallback",
+        "constraints_relaxed",
+    ]
+    | str
+)
+DegradedReason: TypeAlias = (
+    Literal[
+        "missing_user_text",
+        "summary_only_context",
+        "semantic_service_unavailable",
+        "unresolved_previous_turn",
+    ]
+    | str
+)
+TargetKind: TypeAlias = Literal["data", "exploration"] | str
+TargetStatus: TypeAlias = Literal["tentative", "confirmed", "conflicted", "not_applicable"] | str
+ProgressStatus: TypeAlias = Literal["not_started", "in_progress", "covered", "blocked"] | str
+DimensionEffectiveStatus: TypeAlias = (
+    Literal["not_started", "in_progress", "covered", "blocked", "excluded"] | str
+)
+ConfigurationState: TypeAlias = Literal["published", "draft"] | str
+ConfigurationAuditResourceType: TypeAlias = (
+    Literal[
+        "objective",
+        "dimension",
+        "success_information",
+        "question",
+        "configuration",
+        "api_key",
+        "domain",
+    ]
+    | str
+)
+AuditActorType: TypeAlias = Literal["api_key", "cognito_user"] | str
+AuditOrigin: TypeAlias = Literal["public_api", "studio_jwt"] | str
+CompilationStatusValue: TypeAlias = Literal["queued", "running", "succeeded", "failed"] | str
+CompilationErrorCode: TypeAlias = (
+    Literal["validation_failed", "llm_unavailable", "timeout", "internal_error"] | str
+)
+ConfigurationIssueEntity: TypeAlias = (
+    Literal["objective", "dimension", "success_information", "question"] | str
+)
+ErrorCode: TypeAlias = (
+    Literal[
+        "unauthorized",
+        "insufficient_scope",
+        "idempotency_contention",
+        "state_version_conflict",
+        "idempotency_key_reused",
+        "unknown_session",
+        "invalid_previous_turn",
+        "constraint_no_match",
+        "invalid_choice",
+        "compiled_artifact_unavailable",
+        "configuration_validation_failed",
+        "compilation_in_progress",
+        "unknown_configuration",
+        "unknown_compilation",
+    ]
+    | str
+)
 
 #: A value a client may set on a success information. Never an object: the
 #: extraction pipeline could neither produce nor repair one.
@@ -434,6 +460,12 @@ class NextResponse(ZelinqaResponseModel):
 
     ``action: ask`` implies a non-null ``decision_id``, a null ``stop_reason``
     and at least one candidate. ``action: stop`` implies the opposite.
+
+    ``stop_reason`` says why the conversation stops. ``max_turns_reached``: the
+    session reached ``max_turns``; the turn that answered the last allowed
+    question is recorded, the session becomes ``stopped`` and every later call
+    returns the same stop. ``no_question_available``: no identifiable question
+    is left. ``warnings`` never stop the conversation by themselves.
     """
 
     request_id: str

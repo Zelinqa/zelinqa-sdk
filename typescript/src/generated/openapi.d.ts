@@ -379,6 +379,10 @@ export interface paths {
          *     rattachable.
          *
          *     Au premier appel d'une session neuve, `previous_turn` est absent.
+         *
+         *     Lorsque `previous_turn` répond à la dernière question autorisée par
+         *     `max_turns`, ce tour est enregistré puis la réponse est `action: stop` avec
+         *     `stop_reason: max_turns_reached`. Les appels suivants renvoient le même arrêt.
          */
         post: operations["nextQuestions"];
         delete?: never;
@@ -864,11 +868,12 @@ export interface components {
          */
         NextResponse: {
             /**
-             * @description `stop` n'est produit **que** lorsqu'aucune question identifiable
-             *     n'existe. Une limite de tours atteinte, un objectif déjà atteint ou une
-             *     éligibilité normale vide ne coupent pas la conversation : le moteur
-             *     propose encore la meilleure question disponible et le signale dans
-             *     `warnings`. La décision d'arrêter appartient à l'appelant.
+             * @description `stop` est produit dans deux cas, précisés par `stop_reason` : la limite
+             *     `max_turns` est atteinte, ou aucune question identifiable n'existe. Un
+             *     objectif déjà atteint ou une éligibilité normale vide ne coupent pas la
+             *     conversation : le moteur propose encore la meilleure question disponible
+             *     et le signale dans `warnings`. Avant la limite de tours, la décision
+             *     d'arrêter appartient à l'appelant.
              * @enum {string}
              */
             action: "ask" | "stop";
@@ -889,7 +894,7 @@ export interface components {
             session_id: string;
             stop_reason: components["schemas"]["StopReason"] | null;
             turn_count: number;
-            /** @description Vaut `0` lorsque la limite souple est atteinte ou dépassée. */
+            /** @description Vaut `0` lorsque la limite de tours est atteinte ; `action` vaut alors `stop`. */
             turns_remaining: number;
             versions: components["schemas"]["VersionInfo"];
             warnings: components["schemas"]["SelectionWarning"][];
@@ -907,7 +912,7 @@ export interface components {
         Objective: {
             candidates_per_call: number;
             description?: string;
-            /** @description Limite souple. L'atteindre ne coupe pas la conversation. */
+            /** @description Limite de tours d'une session. L'atteindre arrête la conversation. */
             max_turns: number;
             name: string;
             /** @description Force avec laquelle l'ordre des dimensions influence la sélection. */
@@ -1187,7 +1192,6 @@ export interface components {
         /**
          * @description Conditions d'arrêt réunies, sans que Zelinqa interrompe la conversation.
          *
-         *     - `max_turns_reached` : la limite souple est atteinte ou dépassée ;
          *     - `objective_achieved` : les conditions de réussite sont satisfaites ;
          *     - `eligibility_exhausted_fallback` : plus aucune question n'était éligible
          *       normalement, la proposition est un repli — elle porte tout de même un
@@ -1195,7 +1199,7 @@ export interface components {
          *     - `constraints_relaxed` : une préférence `prefer` a dû être élargie.
          * @enum {string}
          */
-        SelectionWarning: "max_turns_reached" | "objective_achieved" | "eligibility_exhausted_fallback" | "constraints_relaxed";
+        SelectionWarning: "objective_achieved" | "eligibility_exhausted_fallback" | "constraints_relaxed";
         /**
          * @description Le client ne choisit ni la version de configuration, ni une politique
          *     d'accusé de réception : la session épingle en interne la version publiée
@@ -1210,9 +1214,9 @@ export interface components {
              */
             initial_history?: components["schemas"]["InitialHistoryItem"][];
             /**
-             * @description Surcharge la limite souple définie dans la configuration. Atteindre cette
-             *     limite ne coupe pas la conversation : `/next` continue de proposer la
-             *     meilleure question avec un avertissement.
+             * @description Surcharge la limite de tours définie dans la configuration. Une fois cette
+             *     limite atteinte, `/next` répond `action: stop` avec
+             *     `stop_reason: max_turns_reached`.
              */
             max_turns?: number;
         };
@@ -1230,7 +1234,11 @@ export interface components {
             question_state: components["schemas"]["PublicQuestionState"];
             request_id: string;
             session_id: string;
-            /** @enum {string} */
+            /**
+             * @description `stopped` : un appel `/next` a renvoyé `action: stop`. Une session arrêtée
+             *     par `max_turns_reached` ne propose plus de question.
+             * @enum {string}
+             */
             status: "active" | "completed" | "stopped";
             /**
              * @description État sparse : seules les cibles réellement touchées sont présentes. Une
@@ -1258,13 +1266,20 @@ export interface components {
             value: string | number | boolean | (string | number | boolean)[];
         };
         /**
-         * @description Unique cause d'arrêt dur : aucune question identifiable ne subsiste après
-         *     application des exclusions dures — question inactive, dimension exclu par
-         *     le client, contrainte stricte de l'appel. Les autres situations terminales
-         *     remontent par `warnings`, la conversation restant décidée par l'appelant.
+         * @description Cause de l'arrêt :
+         *
+         *     - `max_turns_reached` : la session a atteint `max_turns`. Le dernier tour
+         *       autorisé est enregistré ; les appels `/next` suivants renvoient le même
+         *       arrêt sans analyser le tour ni modifier la session ;
+         *     - `no_question_available` : aucune question identifiable ne subsiste après
+         *       application des exclusions dures — question inactive, dimension exclu par
+         *       le client, contrainte stricte de l'appel.
+         *
+         *     Les autres situations terminales remontent par `warnings`, la conversation
+         *     restant décidée par l'appelant.
          * @enum {string}
          */
-        StopReason: "no_question_available";
+        StopReason: "no_question_available" | "max_turns_reached";
         /**
          * @description Réponse à une question à choix. Le mapping choix vers information de réussite
          *     est déterministe et compilé à la publication : aucun appel LLM n'est effectué
@@ -2159,7 +2174,10 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Décision calculée, ou arrêt explicite si aucune question n'existe. */
+            /**
+             * @description Décision calculée, ou arrêt explicite lorsque la limite de tours est atteinte
+             *     ou qu'aucune question n'existe.
+             */
             200: {
                 headers: {
                     [name: string]: unknown;

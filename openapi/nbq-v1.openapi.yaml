@@ -30,12 +30,18 @@ info:
     - **Le client ne choisit pas la version de configuration.** La session épingle
       en interne la version publiée active au moment de sa création.
 
-    ## Arrêts souples
+    ## Arrêts
 
-    Zelinqa ne décide pas à la place de l'appelant. Lorsque `max_turns` est atteint, que
+    `max_turns` borne la conversation. Le tour qui répond à la dernière question
+    autorisée est analysé et enregistré normalement, puis `/next` renvoie
+    `action: stop` avec `stop_reason: max_turns_reached` et la session passe à
+    l'état `stopped`. Tout appel `/next` suivant renvoie le même arrêt, sans analyser
+    le tour ni modifier la session.
+
+    Avant cette limite, Zelinqa ne décide pas à la place de l'appelant. Lorsque
     l'objectif est déjà atteint ou que l'éligibilité normale est vide, `/next`
     renvoie **encore la meilleure question disponible** et signale la situation dans
-    `warnings`. Un `action: stop` n'est produit que lorsqu'aucune question
+    `warnings`. Un autre `action: stop` n'est produit que lorsqu'aucune question
     identifiable n'existe réellement. Les exclusions dures — question inactive,
     dimension exclu par le client, contrainte stricte de l'appel — ne sont jamais
     violées, et toute question retournée porte un `question_id` valide.
@@ -169,6 +175,10 @@ paths:
         rattachable.
 
         Au premier appel d'une session neuve, `previous_turn` est absent.
+
+        Lorsque `previous_turn` répond à la dernière question autorisée par
+        `max_turns`, ce tour est enregistré puis la réponse est `action: stop` avec
+        `stop_reason: max_turns_reached`. Les appels suivants renvoient le même arrêt.
       operationId: nextQuestions
       x-required-scopes: [runtime]
       parameters:
@@ -229,7 +239,9 @@ paths:
                       mode: restrict
       responses:
         '200':
-          description: Décision calculée, ou arrêt explicite si aucune question n'existe.
+          description: |
+            Décision calculée, ou arrêt explicite lorsque la limite de tours est atteinte
+            ou qu'aucune question n'existe.
           content:
             application/json:
               schema:
@@ -1051,9 +1063,9 @@ components:
           minimum: 1
           maximum: 100
           description: |
-            Surcharge la limite souple définie dans la configuration. Atteindre cette
-            limite ne coupe pas la conversation : `/next` continue de proposer la
-            meilleure question avec un avertissement.
+            Surcharge la limite de tours définie dans la configuration. Une fois cette
+            limite atteinte, `/next` répond `action: stop` avec
+            `stop_reason: max_turns_reached`.
         initial_history:
           type: array
           maxItems: 100
@@ -1609,11 +1621,12 @@ components:
           type: string
           enum: [ask, stop]
           description: |
-            `stop` n'est produit **que** lorsqu'aucune question identifiable
-            n'existe. Une limite de tours atteinte, un objectif déjà atteint ou une
-            éligibilité normale vide ne coupent pas la conversation : le moteur
-            propose encore la meilleure question disponible et le signale dans
-            `warnings`. La décision d'arrêter appartient à l'appelant.
+            `stop` est produit dans deux cas, précisés par `stop_reason` : la limite
+            `max_turns` est atteinte, ou aucune question identifiable n'existe. Un
+            objectif déjà atteint ou une éligibilité normale vide ne coupent pas la
+            conversation : le moteur propose encore la meilleure question disponible
+            et le signale dans `warnings`. Avant la limite de tours, la décision
+            d'arrêter appartient à l'appelant.
         stop_reason:
           oneOf:
             - $ref: '#/components/schemas/StopReason'
@@ -1636,7 +1649,7 @@ components:
         turns_remaining:
           type: integer
           minimum: 0
-          description: Vaut `0` lorsque la limite souple est atteinte ou dépassée.
+          description: Vaut `0` lorsque la limite de tours est atteinte ; `action` vaut alors `stop`.
         warnings:
           type: array
           uniqueItems: true
@@ -1661,14 +1674,12 @@ components:
     SelectionWarning:
       type: string
       enum:
-        - max_turns_reached
         - objective_achieved
         - eligibility_exhausted_fallback
         - constraints_relaxed
       description: |
         Conditions d'arrêt réunies, sans que Zelinqa interrompe la conversation.
 
-        - `max_turns_reached` : la limite souple est atteinte ou dépassée ;
         - `objective_achieved` : les conditions de réussite sont satisfaites ;
         - `eligibility_exhausted_fallback` : plus aucune question n'était éligible
           normalement, la proposition est un repli — elle porte tout de même un
@@ -1677,12 +1688,19 @@ components:
 
     StopReason:
       type: string
-      enum: [no_question_available]
+      enum: [no_question_available, max_turns_reached]
       description: |
-        Unique cause d'arrêt dur : aucune question identifiable ne subsiste après
-        application des exclusions dures — question inactive, dimension exclu par
-        le client, contrainte stricte de l'appel. Les autres situations terminales
-        remontent par `warnings`, la conversation restant décidée par l'appelant.
+        Cause de l'arrêt :
+
+        - `max_turns_reached` : la session a atteint `max_turns`. Le dernier tour
+          autorisé est enregistré ; les appels `/next` suivants renvoient le même
+          arrêt sans analyser le tour ni modifier la session ;
+        - `no_question_available` : aucune question identifiable ne subsiste après
+          application des exclusions dures — question inactive, dimension exclu par
+          le client, contrainte stricte de l'appel.
+
+        Les autres situations terminales remontent par `warnings`, la conversation
+        restant décidée par l'appelant.
 
     Candidate:
       type: object
@@ -1795,6 +1813,9 @@ components:
         status:
           type: string
           enum: [active, completed, stopped]
+          description: |
+            `stopped` : un appel `/next` a renvoyé `action: stop`. Une session arrêtée
+            par `max_turns_reached` ne propose plus de question.
         turn_count:
           type: integer
           minimum: 0
@@ -2147,7 +2168,7 @@ components:
           type: integer
           minimum: 1
           maximum: 100
-          description: Limite souple. L'atteindre ne coupe pas la conversation.
+          description: Limite de tours d'une session. L'atteindre arrête la conversation.
         candidates_per_call:
           type: integer
           minimum: 1
@@ -3214,26 +3235,14 @@ components:
           api_version: '1.0'
 
     DecisionApresMaxTurns:
-      summary: La limite de tours est dépassée ; Zelinqa propose encore, l'appelant décide
+      summary: Le dernier tour autorisé est enregistré ; la conversation s'arrête
       value:
         request_id: req_1003
         session_id: ses_01J8Z
-        decision_id: dec_8c11
-        action: ask
-        stop_reason: null
-        candidates:
-          - rank: 1
-            question_id: q_delai
-            text: À quelle période souhaitez-vous être livré ?
-            type: single_choice
-            choices:
-              - choice_id: choice_1m
-                label: Dans le mois
-              - choice_id: choice_3m
-                label: Dans les trois mois
-              - choice_id: choice_later
-                label: Plus tard
-            target_ids: [delivery_window]
+        decision_id: null
+        action: stop
+        stop_reason: max_turns_reached
+        candidates: []
         progress:
           objective:
             computed_status: in_progress
@@ -3264,7 +3273,7 @@ components:
               effective_status: in_progress
         turn_count: 10
         turns_remaining: 0
-        warnings: [max_turns_reached]
+        warnings: []
         degraded: false
         degraded_reasons: []
         versions:
@@ -3311,9 +3320,9 @@ components:
                 status: excluded
                 updated_at: '2026-09-01T09:31:00Z'
               effective_status: excluded
-        turn_count: 12
-        turns_remaining: 0
-        warnings: [objective_achieved, max_turns_reached]
+        turn_count: 7
+        turns_remaining: 8
+        warnings: [objective_achieved]
         degraded: false
         degraded_reasons: []
         versions:

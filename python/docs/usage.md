@@ -179,13 +179,21 @@ async with AsyncZelinqaClient() as client:
 
 ### Reading a decision
 
-`next()` returns a `NextResponse`. Zelinqa never decides for you:
+`next()` returns a `NextResponse`:
 
 - `action == "ask"` → `decision_id` is set, `candidates` is non-empty, ranked, rank 1 first.
-- `action == "stop"` → no identifiable question is left; `stop_reason` says why.
-- `warnings` reports conditions that would justify stopping (`max_turns_reached`,
-  `objective_achieved`, `eligibility_exhausted_fallback`, `constraints_relaxed`)
-  while still proposing the best question available. The decision to stop is yours.
+- `action == "stop"` → `decision_id` is `None`, `candidates` is empty and
+  `stop_reason` says why:
+  - `"max_turns_reached"`: the session reached `max_turns`. The turn that answered
+    the last allowed question is recorded, the session status becomes `"stopped"`
+    and every later `next()` returns the same stop without analysing the turn.
+  - `"no_question_available"`: no identifiable question is left.
+- `warnings` reports conditions that would justify stopping before `max_turns`
+  (`objective_achieved`, `eligibility_exhausted_fallback`, `constraints_relaxed`)
+  while still proposing the best question available. That decision is yours.
+- `stop_reason`, `warnings`, `degraded_reasons` and the other enumerations the
+  server emits accept values added by later API releases as plain strings: keep a
+  default branch for values you do not know.
 - `degraded` / `degraded_reasons` say the turn was understood in reduced mode —
   typically because no `user_text` was provided.
 

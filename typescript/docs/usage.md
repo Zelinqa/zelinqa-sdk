@@ -185,14 +185,20 @@ try {
 }
 ```
 
-### Soft stops
+### Stops
 
-Zelinqa does not decide for you. When `max_turns` is reached, the objective is
-already achieved, or normal eligibility is empty, `next` still returns the best
-available question and says so in `warnings`
-(`max_turns_reached`, `objective_achieved`, `eligibility_exhausted_fallback`,
-`constraints_relaxed`). `action: "stop"` only happens when no identifiable
-question is left; then `stop_reason` is set and `candidates` is empty.
+`max_turns` bounds the conversation. The turn that answers the last allowed
+question is recorded, then `next` returns `action: "stop"` with
+`stop_reason: "max_turns_reached"` and the session status becomes `"stopped"`.
+Every later `next` returns the same stop without analysing the turn.
+
+Before that limit, Zelinqa does not decide for you. When the objective is already
+achieved or normal eligibility is empty, `next` still returns the best available
+question and says so in `warnings` (`objective_achieved`,
+`eligibility_exhausted_fallback`, `constraints_relaxed`). The only other
+`action: "stop"` happens when no identifiable question is left
+(`stop_reason: "no_question_available"`). A stop always has an empty
+`candidates` list.
 
 `degraded` / `degraded_reasons` tell you when the turn was understood in reduced
 mode — typically `missing_user_text` when you sent no verbatim.
