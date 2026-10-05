@@ -31,13 +31,10 @@
 
 ## Measured on 700+ conversations
 
-<table>
-<tr>
-<td align="center" width="33%"><h3>−70 %</h3>tokens consumed, for a dialogue of the same length</td>
-<td align="center" width="33%"><h3>77 % vs 17 %</h3>objectives reached, with the engine vs the same assistant alone</td>
-<td align="center" width="33%"><h3>7 use cases</h3>lead and investor qualification, pre-interviews, pre-consultation, diagnosis</td>
-</tr>
-</table>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Zelinqa/zelinqa-sdk/main/assets/readme/stats-dark.svg">
+  <img src="https://raw.githubusercontent.com/Zelinqa/zelinqa-sdk/main/assets/readme/stats-light.svg" alt="70 percent fewer tokens consumed; 77 percent of objectives reached against 17 percent for the same assistant alone; seven use cases." width="100%">
+</picture>
 
 Internal test bench, September 2026: more than 700 conversations replayed twice with the same assistant, alone then steered by the Zelinqa engine, with simulated respondents replayed identically on both sides. Protocol, figures and limits: [read the test bench report](https://zelinqa.ai/en/blog/banc-essai-moteur-zelinqa). A scientific benchmark with shared data and code is planned before the end of 2026.
 
