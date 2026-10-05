@@ -29,6 +29,18 @@
 
 **Zelinqa chooses the next question.** You describe once what a conversation must find out. Your application sends each reply from the person, and the engine returns the next useful question, or stops when the objective is met. Your assistant keeps the conversation and the wording; the SDK keeps track of session, decision, question and choice identifiers for you.
 
+## Measured on 700+ conversations
+
+<table>
+<tr>
+<td align="center" width="33%"><h3>−70 %</h3>tokens consumed, for a dialogue of the same length</td>
+<td align="center" width="33%"><h3>77 % vs 17 %</h3>objectives reached, with the engine vs the same assistant alone</td>
+<td align="center" width="33%"><h3>7 use cases</h3>lead and investor qualification, pre-interviews, pre-consultation, diagnosis</td>
+</tr>
+</table>
+
+Internal test bench, September 2026: more than 700 conversations replayed twice with the same assistant, alone then steered by the Zelinqa engine, with simulated respondents replayed identically on both sides. Protocol, figures and limits: [read the test bench report](https://zelinqa.ai/en/blog/banc-essai-moteur-zelinqa). A scientific benchmark with shared data and code is planned before the end of 2026.
+
 ## Why
 
 <picture>
