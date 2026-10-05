@@ -202,7 +202,7 @@ A few rules the engine enforces:
 
 ## Contributing
 
-Issues and pull requests are welcome at [github.com/Zelinqa/zelinqa-sdk](https://github.com/Zelinqa/zelinqa-sdk/issues). Release prerequisites are described in [`PUBLISHING.md`](PUBLISHING.md).
+Issues and pull requests are welcome at [github.com/Zelinqa/zelinqa-sdk](https://github.com/Zelinqa/zelinqa-sdk/issues). Release prerequisites are described in [`RELEASING.md`](RELEASING.md).
 
 ## License
 
