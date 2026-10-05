@@ -116,7 +116,7 @@ def test_spec_snapshot_is_readable() -> None:
         "README.md",
         "python/README.md",
         "typescript/README.md",
-        "PUBLISHING.md",
+        "RELEASING.md",
         "openapi/nbq-v1.openapi.yaml",
         "typescript/src/types.ts",
         "typescript/src/generated/openapi.d.ts",

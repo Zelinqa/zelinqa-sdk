@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.1 — Unreleased
+## 1.0.1 — 2026-09-29
 
 - Python: `StopReason` accepts `max_turns_reached`. When a session reaches
   `max_turns`, `next()` returns `action: "stop"` with

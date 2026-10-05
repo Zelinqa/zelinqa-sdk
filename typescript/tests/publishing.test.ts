@@ -31,7 +31,7 @@ const source = readFileSync(
   "utf8",
 );
 const workflow = parse(source) as Workflow;
-const guide = readFileSync(new URL("../../PUBLISHING.md", import.meta.url), "utf8");
+const guide = readFileSync(new URL("../../RELEASING.md", import.meta.url), "utf8");
 const metadata = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
 
 describe("npm trusted publishing configuration", () => {

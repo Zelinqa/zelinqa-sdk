@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-label="Zelinqa SDK">
+  <rect x="1" y="1" width="1198" height="298" rx="24" fill="#FBFAF6" stroke="#E2E1EC" stroke-width="2"/>
+  <circle cx="1080" cy="40" r="210" fill="#F1F0F8" opacity="0.55"/>
+  <g transform="translate(72 66) scale(0.28)">
+    <path d="M46 372 A270 270 0 1 1 126 487 C110 523 82 549 47 567 C35 573 25 563 33 553 C50 532 52 447 46 372 Z" fill="#5846D6" stroke="#4336B4" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M88 118 H430 C388 167 314 214 251 270 C188 326 168 387 214 426 C262 467 361 446 452 425 C395 468 337 518 341 569 C346 625 425 646 500 580" stroke="#FFFFFF" stroke-width="78" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="translate(94 8) scale(.70)"/>
+  </g>
+  <text x="268" y="130" font-family="Georgia, 'Times New Roman', serif" font-size="64" font-weight="700" fill="#1A1A2D">Zelinqa SDK</text>
+  <text x="268" y="176" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" fill="#686A73">Official Python and TypeScript clients for the Zelinqa API.</text>
+  <text x="268" y="206" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" fill="#686A73">Describe what a conversation must find out; the engine picks the next question.</text>
+  <rect x="760" y="214" width="114" height="30" rx="15" fill="#F1F0F8"/><text x="817" y="234" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#6B5BD6">Python 3.11+</text><rect x="884.4" y="214" width="106" height="30" rx="15" fill="#F1F0F8"/><text x="938" y="234" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#6B5BD6">Node.js 22+</text><rect x="1000.5999999999999" y="214" width="98" height="30" rx="15" fill="#F1F0F8"/><text x="1050" y="234" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#6B5BD6">Apache-2.0</text>
+</svg>
