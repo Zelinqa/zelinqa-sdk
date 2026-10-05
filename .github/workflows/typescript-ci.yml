@@ -1,22 +1,8 @@
 name: TypeScript SDK CI
 
 on:
+  # Required checks must report a result for every pull request, whatever it touches.
   pull_request:
-    paths:
-      - 'README.md'
-      - 'PUBLISHING.md'
-      - 'typescript/**'
-      - 'openapi/**'
-      - 'scripts/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'biome.json'
-      - 'vitest.config.ts'
-      - 'vitest.live.config.ts'
-      - '.changeset/**'
-      - '.github/workflows/typescript-ci.yml'
-      - '.github/workflows/publish-typescript-sdk.yml'
   push:
     branches: [main]
     paths:
