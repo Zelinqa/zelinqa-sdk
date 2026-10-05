@@ -29,14 +29,14 @@
 
 **Zelinqa chooses the next question.** You describe once what a conversation must find out. Your application sends each reply from the person, and the engine returns the next useful question, or stops when the objective is met. Your assistant keeps the conversation and the wording; the SDK keeps track of session, decision, question and choice identifiers for you.
 
-## Measured on 700+ conversations
+## Fewer tokens, measured
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Zelinqa/zelinqa-sdk/main/assets/readme/stats-dark.svg">
-  <img src="https://raw.githubusercontent.com/Zelinqa/zelinqa-sdk/main/assets/readme/stats-light.svg" alt="70 percent fewer tokens consumed; 77 percent of objectives reached against 17 percent for the same assistant alone; seven use cases." width="100%">
+  <img src="https://raw.githubusercontent.com/Zelinqa/zelinqa-sdk/main/assets/readme/stats-light.svg" alt="70 percent fewer tokens consumed with the Zelinqa engine, measured on more than 700 conversations across seven use cases." width="100%">
 </picture>
 
-Internal test bench, September 2026: more than 700 conversations replayed twice with the same assistant, alone then steered by the Zelinqa engine, with simulated respondents replayed identically on both sides. Protocol, figures and limits: [read the test bench report](https://zelinqa.ai/en/blog/banc-essai-moteur-zelinqa). A scientific benchmark with shared data and code is planned before the end of 2026.
+The engine chooses the questions, so the model stops generating them and stops re-asking: fewer tokens for the same dialogue. Internal test bench, September 2026: more than 700 conversations replayed twice with the same assistant, alone then steered by the Zelinqa engine, with simulated respondents replayed identically on both sides. Protocol, figures and limits: [read the test bench report](https://zelinqa.ai/en/blog/banc-essai-moteur-zelinqa). A scientific benchmark with shared data and code is planned before the end of 2026.
 
 ## Why
 
