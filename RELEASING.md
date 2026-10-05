@@ -11,9 +11,28 @@ repository.
 3. Python: run the `Publish Python SDK to PyPI` workflow on `main` with the
    confirmation `publish-zelinqa`, then approve the `pypi` environment.
 4. TypeScript: run the `Publish TypeScript SDK to npm` workflow on `main` with
-   the confirmation `publish-zelinqa-sdk`, then approve the `npm` environment.
+   the confirmation `publish-zelinqa-sdk`, then approve the `npm` environment:
+
+   ```bash
+   gh workflow run publish-typescript-sdk.yml --repo Zelinqa/zelinqa-sdk --ref main -f confirm=publish-zelinqa-sdk
+   ```
 5. Verify a clean install of both packages at the new version, in ESM and
    CommonJS for TypeScript.
+
+## npm trusted publisher
+
+`@zelinqa/sdk` is published without a token. The package settings on npmjs.com
+must keep this trusted publisher, with **Allow npm publish** enabled:
+
+| Field | Value |
+| --- | --- |
+| Organization or user | `Zelinqa` |
+| Repository | `zelinqa-sdk` |
+| Workflow filename | `publish-typescript-sdk.yml` |
+| Environment name | `npm` |
+
+The GitHub `npm` and `pypi` environments stay restricted to `main` with
+maintainer approval.
 
 A published version number is never reused. Security fixes follow
 [SECURITY.md](SECURITY.md).
