@@ -97,7 +97,7 @@ Keep API keys out of browser code, mobile apps, logs and source control. A free 
 
 ## Your first conversation
 
-Both examples ask one question, send the person's reply and read the next decision. For choice questions, enter one of the displayed labels exactly.
+Both examples ask one question in the console, send the person's reply and read the next decision. For choice questions, enter one of the displayed labels exactly.
 
 **Python**
 
@@ -128,6 +128,8 @@ with ZelinqaClient() as client:
 **TypeScript**
 
 ```ts
+import { createInterface } from "node:readline/promises";
+import { stdin, stdout } from "node:process";
 import { ZelinqaClient } from "@zelinqa/sdk";
 
 const client = new ZelinqaClient({ apiKey: process.env.ZELINQA_API_KEY ?? "" });
@@ -137,17 +139,24 @@ const question = decision.candidates[0];
 
 if (decision.action === "ask" && question !== undefined) {
   console.log(question.text);
-  for (const choice of question.choices) console.log(`- ${choice.label}`);
-
-  const reply = await readLine("> "); // your input method
-  if (!reply.trim()) {
-    decision = await session.answer({ outcome: "asked_no_answer" });
-  } else if (question.choices.length > 0) {
-    decision = await session.answer({ choiceLabels: [reply] });
-  } else {
-    decision = await session.answer({ userText: reply });
+  for (const choice of question.choices) {
+    console.log(`- ${choice.label}`);
   }
-  console.log(decision.action, decision.warnings);
+
+  const input = createInterface({ input: stdin, output: stdout });
+  try {
+    const reply = await input.question("> ");
+    if (!reply.trim()) {
+      decision = await session.answer({ outcome: "asked_no_answer" });
+    } else if (question.choices.length > 0) {
+      decision = await session.answer({ choiceLabels: [reply] });
+    } else {
+      decision = await session.answer({ userText: reply });
+    }
+    console.log(decision.action, decision.warnings);
+  } finally {
+    input.close();
+  }
 }
 ```
 
